@@ -1,0 +1,59 @@
+{
+  "name": "smart-screenshot-desktop",
+  "version": "1.0.0",
+  "description": "Smart Screenshot Search Engine - Electron + React + Python Desktop App",
+  "main": "electron/main.js",
+  "author": "Sakshi",
+  "license": "MIT",
+  "scripts": {
+    "client-install": "cd client && npm install",
+    "client-build": "cd client && npm run build",
+    "dev": "cross-env NODE_ENV=development concurrently \"cd client && npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "start": "cross-env NODE_ENV=production electron .",
+    "pack": "npm run client-build && electron-builder --dir",
+    "dist": "npm run client-build && electron-builder"
+  },
+  "devDependencies": {
+    "concurrently": "^7.0.0",
+    "cross-env": "^7.0.0",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "wait-on": "^7.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "build": {
+    "appId": "com.smartshot.desktop",
+    "productName": "Smart Screenshot Search Engine",
+    "files": [
+      "electron/**/*",
+      "client/build/**/*",
+      {
+        "from": "app/dist/smartshot",
+        "to": "python",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "electron/resources"
+    },
+    "asar": true,
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
+
