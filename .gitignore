@@ -1,1 +1,39 @@
-node_modules
+﻿# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# React build
+client/build/
+
+# Electron build
+dist/
+out/
+
+# Python virtual environment
+.venv/
+__pycache__/
+app/dist/
+app/build/
+
+# Python temp files
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+logs/
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+client/.env
+backend_node/.env
+app/.env
