@@ -1,0 +1,74 @@
+{
+  "recent": [
+    {
+      "query": "sistec",
+      "time": 1764401049.936537
+    },
+    {
+      "query": "client",
+      "time": 1764400969.251105
+    },
+    {
+      "query": "chetgpt",
+      "time": 1764331689.2197201
+    },
+    {
+      "query": "smartscreenshot",
+      "time": 1764328773.2410927
+    }
+  ],
+  "cache": {
+    "smartscreenshot": [
+      {
+        "filename": "desktop.ini",
+        "path": "C:\\Users\\saksh_dd86j1h\\OneDrive\\Pictures\\Screenshots 1\\desktop.ini",
+        "text": "",
+        "score": 110.0,
+        "fuzzy_score": 0.0,
+        "tfidf_score": 0.0,
+        "embed_score": 0.0,
+        "match_info": "Fuzzy / semantic match",
+        "tags": []
+      }
+    ],
+    "chetgpt": [
+      {
+        "filename": "desktop.ini",
+        "path": "C:\\Users\\saksh_dd86j1h\\OneDrive\\Pictures\\Screenshots 1\\desktop.ini",
+        "text": "",
+        "score": 110.0,
+        "fuzzy_score": 0.0,
+        "tfidf_score": 0.0,
+        "embed_score": 0.0,
+        "match_info": "Fuzzy / semantic match",
+        "tags": []
+      }
+    ],
+    "client": [
+      {
+        "filename": "desktop.ini",
+        "path": "C:\\Users\\saksh_dd86j1h\\OneDrive\\Pictures\\Screenshots 1\\desktop.ini",
+        "text": "",
+        "score": 110.0,
+        "fuzzy_score": 0.0,
+        "tfidf_score": 0.0,
+        "embed_score": 0.0,
+        "match_info": "Fuzzy / semantic match",
+        "tags": []
+      }
+    ],
+    "sistec": [
+      {
+        "filename": "desktop.ini",
+        "path": "C:\\Users\\saksh_dd86j1h\\OneDrive\\Pictures\\Screenshots 1\\desktop.ini",
+        "text": "",
+        "score": 110.0,
+        "fuzzy_score": 0.0,
+        "tfidf_score": 0.0,
+        "embed_score": 0.0,
+        "match_info": "Fuzzy / semantic match",
+        "tags": []
+      }
+    ]
+  }
+}
