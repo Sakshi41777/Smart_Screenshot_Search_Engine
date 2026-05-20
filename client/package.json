@@ -1,15 +1,11 @@
 {
   "name": "smart-screenshot-client",
   "version": "0.1.0",
-<<<<<<< HEAD
   "homepage": ".",
-=======
->>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   "private": true,
   "dependencies": {
     "axios": "^1.13.2",
     "gsap": "^3.13.0",
-<<<<<<< HEAD
     "jwt-decode": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -19,9 +15,13 @@
     "tesseract.js": "^6.0.1"
   },
   "scripts": {
-    "build": "react-scripts build"
+    "start": "cross-env PORT=3000 react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^7.0.1"
   },
@@ -33,21 +33,6 @@
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn"
     }
-=======
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^7.9.6",
-    "react-scripts": "5.0.1"
-  },
-  "scripts": {
-    "start": "cross-env PORT=3000 react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "devDependencies": {
-    "cross-env": "^10.1.0"
->>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   },
   "browserslist": {
     "production": [
