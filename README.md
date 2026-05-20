@@ -245,4 +245,3 @@ Common things to check:
 - Do not commit `.env` files or real API keys.
 - `npm run dev:desktop` is the recommended command for normal development.
 - `npm start` also builds the client and starts the backend plus Electron in production mode.
- e602d9f76dae2518e38a65a9afec0f77ae0358a8

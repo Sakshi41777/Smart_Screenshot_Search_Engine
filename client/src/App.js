@@ -207,7 +207,6 @@ export default function App() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
     </Routes>
   );
 }

@@ -5,7 +5,6 @@ import "./SignIn.css";
 
 const DESKTOP_GOOGLE_TIMEOUT_MS = 5 * 60 * 1000;
 const DESKTOP_GOOGLE_POLL_MS = 900;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 export default function SignIn({ onAuth, onShowRegister }) {
   const [email, setEmail] = useState("");
@@ -38,7 +37,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
           err.message ||
           "Login failed"
       );
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
     } finally {
       setLoading(false);
     }
@@ -154,7 +152,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
           <div className="signin-image-wrap">
             <img
               src={`${process.env.PUBLIC_URL}/signin-illustration.png`}
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
               alt="Illustration"
               className="signin-image"
             />
@@ -183,7 +180,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
         </div>
 
         {/* RIGHT PANEL */}
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
         <div className="signin-right">
           <h2 className="signin-title">Sign In</h2>
           <p className="signin-sub">Unlock your world.</p>
@@ -195,7 +191,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
             <input
               className="field-input"
               type="email"
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -207,7 +202,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
             <input
               className="field-input"
               type="password"
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -225,7 +219,6 @@ export default function SignIn({ onAuth, onShowRegister }) {
                 Resend verification email
               </button>
             ) : null}
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
             <button className="btn-primary" type="submit" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
@@ -244,4 +237,3 @@ export default function SignIn({ onAuth, onShowRegister }) {
     </div>
   );
 }
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
