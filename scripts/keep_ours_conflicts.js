@@ -23,7 +23,10 @@ function keepOursInFile(filePath) {
     const headPart = content.substring(a + '<<<<<<< HEAD'.length, mid);
     // remove a possible leading newline
     let replacement = headPart.replace(/^\r?\n/, '');
-    content = content.substring(0, a) + replacement + content.substring(b + ('>>>>>>>'.length));
+    // find end of the >>>>>>> line
+    let lineEnd = content.indexOf('\n', b);
+    if (lineEnd === -1) lineEnd = content.length;
+    content = content.substring(0, a) + replacement + content.substring(lineEnd + 1);
     changed = true;
   }
   if (changed) {
