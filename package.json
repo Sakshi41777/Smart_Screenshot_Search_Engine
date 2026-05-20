@@ -8,6 +8,7 @@
   "scripts": {
     "client-install": "cd client && npm install",
     "client-build": "cd client && npm run build",
+<<<<<<< HEAD
     "rebuild-backend": "node scripts/try-rebuild.js",
     "kill-app": "powershell -Command \"taskkill /F /IM \"Smart Screenshot Search Engine.exe\" /T /FI \"STATUS eq RUNNING\" 2> $null; taskkill /F /IM electron.exe /T /FI \"STATUS eq RUNNING\" 2> $null\"",
     "dev": "npm run dev:desktop",
@@ -18,11 +19,22 @@
   },
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.29",
+=======
+    "dev": "cross-env NODE_ENV=development concurrently \"cd client && npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "start": "cross-env NODE_ENV=production electron .",
+    "pack": "npm run client-build && electron-builder --dir",
+    "dist": "npm run client-build && electron-builder"
+  },
+  "devDependencies": {
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     "concurrently": "^7.0.0",
     "cross-env": "^7.0.0",
     "electron": "^25.0.0",
     "electron-builder": "^24.0.0",
+<<<<<<< HEAD
     "electron-rebuild": "^3.2.9",
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     "wait-on": "^7.0.0"
   },
   "dependencies": {
@@ -38,7 +50,10 @@
     "files": [
       "electron/**/*",
       "client/build/**/*",
+<<<<<<< HEAD
       "backend_node/**/*",
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
       {
         "from": "app/dist/smartshot",
         "to": "python",
@@ -47,6 +62,7 @@
         ]
       }
     ],
+<<<<<<< HEAD
     "asarUnpack": [
       "backend_node/**"
     ],
@@ -59,18 +75,25 @@
         ]
       }
     ],
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     "directories": {
       "buildResources": "electron/resources"
     },
     "asar": true,
     "win": {
+<<<<<<< HEAD
       "target": "nsis",
       "icon": "electron/resources/icon.ico"
+=======
+      "target": "nsis"
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     },
     "nsis": {
       "oneClick": false,
       "allowElevation": true,
       "perMachine": false,
+<<<<<<< HEAD
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -79,3 +102,10 @@
     }
   }
 }
+=======
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
+
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
