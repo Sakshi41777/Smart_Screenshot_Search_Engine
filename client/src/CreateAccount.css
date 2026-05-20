@@ -1,6 +1,11 @@
 /* client/src/CreateAccount.css
+<<<<<<< HEAD
+   Corrected: prevents page scroll, equal-height card, responsive,
+   consistent with SignIn.css visual theme.
+=======
    Equal-height registration card, prevents page scroll, responsive,
    keeps the same visual theme as SignIn.css but for the register page.
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 */
 
 :root{
@@ -11,12 +16,20 @@
   --shadow: 0 18px 50px rgba(13,52,120,0.06);
 }
 
+<<<<<<< HEAD
+html, body, #root {
+=======
 html,body,#root {
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   height:100%;
   margin:0;
   font-family: "Inter", "Segoe UI", Roboto, sans-serif;
   background: var(--page-bg);
+<<<<<<< HEAD
+  box-sizing: border-box;
+=======
   background-color: #0b1226;
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 /* center container */
@@ -27,11 +40,19 @@ html,body,#root {
   justify-content:center;
   padding:36px 20px;
   box-sizing: border-box;
+<<<<<<< HEAD
+  overflow: hidden; /* prevent page scrollbar from card overflow */
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 /* card: fixed max height so it won't overflow the page */
 .reg-card {
   width: 1100px;
+<<<<<<< HEAD
+  max-width: 98%;
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   display: flex;
   border-radius: 18px;
   overflow: hidden;
@@ -40,7 +61,11 @@ html,body,#root {
 
   /* Limit height to viewport so no page scrollbar from card */
   height: min(80vh, 760px);
+<<<<<<< HEAD
+  max-height: calc(100vh - 64px);
+=======
   max-height: calc(100vh - 80px);
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   align-items: stretch; /* ensures left and right are same height */
   box-sizing: border-box;
 }
@@ -54,12 +79,20 @@ html,body,#root {
   justify-content:center;
   padding: 32px;
   box-sizing: border-box;
+<<<<<<< HEAD
+  flex-direction: column; /* stack image + left-cta */
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 .reg-image {
   max-width: 80%;
   height: auto;
+<<<<<<< HEAD
+  max-height: calc(80vh - 200px); /* caps image height relative to viewport */
+=======
   max-height: calc(80vh - 160px); /* caps image height relative to viewport */
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   border-radius: 8px;
   background: #fff;
   padding: 18px;
@@ -80,14 +113,23 @@ html,body,#root {
   justify-content: center;
 }
 
+<<<<<<< HEAD
+/* Make the form area scroll internally when viewport is small.
+   Keep visible overflow by default to avoid page scrollbar. */
+=======
 /* Make the form area scroll internally when viewport is small */
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 .reg-form {
   margin-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   max-height: calc(80vh - 180px);
+<<<<<<< HEAD
+  overflow: visible;
+=======
   overflow: auto;
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   padding-right: 6px; /* space for optional scrollbar */
 }
 
@@ -120,7 +162,11 @@ html,body,#root {
 /* password strength bar */
 .pw-row { display:flex; align-items:center; gap:12px; margin-top:6px; }
 .pw-bar { flex:1; height:10px; background:#eef3ff; border-radius:8px; overflow:hidden; }
+<<<<<<< HEAD
+.pw-fill { height:100%; width:0%; transition: width 250ms ease; background:#cbd5ff; display:block; }
+=======
 .pw-fill { height:100%; width:0%; transition: width 250ms ease; background:#cbd5ff; }
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 .pw-fill.s0 { width:6%; background:#f3f4f6; }
 .pw-fill.s1 { width:20%; background:#ffcccc; }
 .pw-fill.s2 { width:45%; background:#ffd28a; }
@@ -129,8 +175,14 @@ html,body,#root {
 .pw-label { width:110px; text-align:right; color:var(--muted); font-size:13px; }
 
 /* messages & error */
+<<<<<<< HEAD
+.reg-error { color:#b92222; margin-top:6px; font-size:14px; }
+.reg-msg { color:#1867ff; margin-top:6px; font-size:14px; }
+.reg-success { color:#166534; margin-top:6px; font-size:14px; }
+=======
 .reg-error { color:#b92222; margin-top:6px; }
 .reg-msg { color:#1867ff; margin-top:6px; }
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 /* buttons */
 .reg-btn {
@@ -147,6 +199,19 @@ html,body,#root {
 }
 .reg-btn:disabled { opacity: 0.7; cursor: default; }
 
+<<<<<<< HEAD
+/* ghost / guest buttons */
+.reg-btn-ghost {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(15,23,42,0.08);
+  background: white;
+  cursor: pointer;
+}
+
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 /* footer link */
 .reg-footer { margin-top: 14px; text-align: center; color: var(--muted); }
 .link-like { background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 0; font-weight: 600; }
@@ -180,3 +245,75 @@ html,body,#root {
   .reg-card { height: auto; max-height: none; }
   .reg-form { max-height: 320px; overflow: auto; }
 }
+<<<<<<< HEAD
+
+/* Left panel CTA area (Google + Guest) */
+.left-cta {
+  width: 100%;
+  padding: 18px 24px 32px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px; /* space below the illustration */
+}
+
+/* Google button container when rendered on left */
+.google-button-wrap-left {
+  width: 220px;
+  display: inline-block;
+}
+
+/* Style the Google button to match spacing (the actual GSI button styles remain) */
+.google-button-wrap-left > div {
+  width: 100% !important;
+}
+
+/* Guest button left style */
+.btn-guest-left,
+.reg-btn-ghost-left {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(15,23,42,0.08);
+  background: white;
+  cursor: pointer;
+  font-weight: 600;
+  width: 220px;
+  text-align: center;
+}
+
+/* On wide screens keep left CTAs centered below image */
+.signin-left .left-cta,
+.reg-left .left-cta {
+  justify-content: center;
+  align-items: center;
+}
+
+/* Responsive: on narrow screens, move left CTAs under the form (so they are easy to tap) */
+@media (max-width: 980px) {
+  /* hide left ctas visually in left panel since left panel stacks above */
+  .left-cta {
+    margin-top: 12px;
+    order: 3;
+    width: 100%;
+  }
+
+  /* ensure Google button and guest are full width inside stacked layout */
+  .google-button-wrap-left {
+    width: 280px;
+    max-width: 92%;
+  }
+  .btn-guest-left, .reg-btn-ghost-left {
+    width: 220px;
+    max-width: 92%;
+  }
+
+  /* optionally: move left CTA after the form (so it's below) */
+  .signin-left .left-cta,
+  .reg-left .left-cta {
+    align-self: center;
+  }
+}
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
