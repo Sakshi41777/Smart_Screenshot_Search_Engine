@@ -766,6 +766,3 @@ app.on("activate", () => {
   if (!mainWindow) createWindow();
   else mainWindow.show();
 });
-
-  }
-});
