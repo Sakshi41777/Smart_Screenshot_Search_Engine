@@ -47,6 +47,13 @@ function main() {
     try {
       const absolute = path.resolve(f);
       const ok = keepOursInFile(absolute);
+      // remove any leftover commit-id-only lines
+      let content = fs.readFileSync(absolute, 'utf8');
+      const cleaned = content.replace(/^\s*[0-9a-f]{7,40}\s*$/gm, '');
+      if (cleaned !== content) {
+        fs.writeFileSync(absolute, cleaned, 'utf8');
+        if (!ok) console.log('Cleaned stray hash in', f);
+      }
       if (ok) {
         console.log('Kept ours for', f);
         modified++;
