@@ -1,13 +1,35 @@
 // client/src/Welcome.js
 import React, { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+<<<<<<< HEAD
+import { useNavigate } from "react-router-dom";
+import "./Welcome.css";
+
+/* Static images for falling animation */
+const SAMPLE_IMAGES = [
+  `${process.env.PUBLIC_URL}/screenshots/ss1.png`,
+  `${process.env.PUBLIC_URL}/screenshots/ss2.png`,
+  `${process.env.PUBLIC_URL}/screenshots/ss3.png`,
+  `${process.env.PUBLIC_URL}/screenshots/ss4.png`,
+];
+
+export default function Welcome({ onAuth }) {
+  const navigate = useNavigate();
+
+=======
 import "./Welcome.css";
 
 export default function Welcome() {
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   const titleRef = useRef(null);
   const subRef = useRef(null);
   const btnRef = useRef(null);
   const fallingRef = useRef(null);
+<<<<<<< HEAD
+  const [showOptions, setShowOptions] = useState(false);
+
+  /* ---------- Falling background animation ---------- */
+=======
   const [message, setMessage] = useState("");
 
   const SAMPLE_IMAGES = [
@@ -18,6 +40,7 @@ export default function Welcome() {
   ];
 
   // Falling animation
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const container = fallingRef.current;
     if (!container) return;
@@ -44,7 +67,12 @@ export default function Welcome() {
         duration: 6 + Math.random() * 6,
         repeat: -1,
         ease: "none",
+<<<<<<< HEAD
+        onRepeat: () =>
+          gsap.set(img, { xPercent: Math.random() * 100, y: -150 }),
+=======
         onRepeat: () => gsap.set(img, { xPercent: Math.random() * 100, y: -150 }),
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
       });
 
       items.push(img);
@@ -52,12 +80,19 @@ export default function Welcome() {
 
     for (let i = 0; i < COUNT; i++) spawn(i);
 
+<<<<<<< HEAD
+    return () => items.forEach((it) => it.remove());
+  }, []);
+
+  /* ---------- Intro animations ---------- */
+=======
     return () => {
       items.forEach((it) => it.remove());
     };
   }, []);
 
   // GSAP intro animation
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const a = titleRef.current;
     const b = subRef.current;
@@ -75,6 +110,37 @@ export default function Welcome() {
     return () => tl.kill();
   }, []);
 
+<<<<<<< HEAD
+  /* ---------- CTA handlers ---------- */
+  function handleMainClick() {
+    gsap.fromTo(
+      btnRef.current,
+      { scale: 1 },
+      { scale: 0.92, duration: 0.08, yoyo: true, repeat: 1 }
+    );
+    setShowOptions(true);
+  }
+
+  function handleLogin() {
+    navigate("/signin");
+  }
+
+  function handleRegister() {
+    navigate("/register");
+  }
+
+  // Clean guest mode is kept in the renderer.
+  function handleGuest() {
+    if (typeof onAuth === "function") {
+      onAuth({
+        user: {
+          id: "guest",
+          name: "Guest",
+          guest: true,
+        },
+      });
+    }
+=======
   // Handle the button click
   async function handleClick() {
     gsap.fromTo(btnRef.current, { scale: 1 }, { scale: 0.92, duration: 0.08, yoyo: true, repeat: 1 });
@@ -96,6 +162,7 @@ export default function Welcome() {
     }
 
     setMessage("Not running inside Electron. Use 'npm run dev'.");
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   }
 
   return (
@@ -103,6 +170,42 @@ export default function Welcome() {
       <div className="falling-back" ref={fallingRef} />
 
       <div className="center-stage">
+<<<<<<< HEAD
+        <h1 className="wm-title" ref={titleRef}>
+          Welcome to Visual Memory Search
+        </h1>
+
+        <h2 className="wm-sub" ref={subRef}>
+          - Smart Screenshot Search Engine
+        </h2>
+
+        <button className="wm-cta" ref={btnRef} onClick={handleMainClick}>
+          Search Screenshots
+        </button>
+
+        {showOptions && (
+          <div className="wm-options">
+            <p className="wm-options-note">
+              Choose how you'd like to proceed
+            </p>
+
+            <div className="wm-options-row">
+              <button className="wm-option-btn" onClick={handleLogin}>
+                Login
+              </button>
+              <button className="wm-option-btn" onClick={handleRegister}>
+                Register
+              </button>
+              <button className="wm-option-ghost" onClick={handleGuest}>
+                Use as guest
+              </button>
+            </div>
+
+            <p className="wm-guest-note">
+              Guest users can explore the app, but features like history, saved
+              items, and analytics are disabled.
+            </p>
+=======
         <h1 className="wm-title" ref={titleRef}>Welcome to Visual Memory Search</h1>
 
         <h2 className="wm-sub" ref={subRef}>- Smart Screenshot Search Engine</h2>
@@ -118,6 +221,7 @@ export default function Welcome() {
         {message && (
           <div style={{ marginTop: 14, color: "#cfe2ff" }}>
             {message}
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
           </div>
         )}
       </div>
