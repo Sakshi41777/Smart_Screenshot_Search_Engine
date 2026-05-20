@@ -1,5 +1,4 @@
 // client/src/App.js
-<<<<<<< HEAD
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
@@ -208,56 +207,7 @@ export default function App() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
-=======
-import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-
-import SignIn from "./SignIn";
-import CreateAccount from "./CreateAccount";
-import Welcome from "./Welcome";
-
-export default function App() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-
-  // Load saved login session
-  useEffect(() => {
-    const saved = localStorage.getItem("auth_user");
-    if (saved) {
-      setUser(JSON.parse(saved));
-    }
-  }, []);
-
-  // Called when SignIn is successful
-  function handleAuth(userData) {
-    setUser(userData);
-    navigate("/welcome");
-  }
-
-  return (
-    <Routes>
-
-      {/* PUBLIC ROUTES */}
-      <Route
-        path="/"
-        element={<SignIn onAuth={handleAuth} onShowRegister={() => navigate("/register")} />}
-      />
-
-      <Route
-        path="/register"
-        element={<CreateAccount onShowLogin={() => navigate("/")} />}
-      />
-
-      {/* PROTECTED ROUTE */}
-      <Route
-        path="/welcome"
-        element={user ? <Welcome /> : <Navigate to="/" replace />}
-      />
-
-      {/* DEFAULT REDIRECT */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-
->>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
+ e602d9f76dae2518e38a65a9afec0f77ae0358a8
     </Routes>
   );
 }
