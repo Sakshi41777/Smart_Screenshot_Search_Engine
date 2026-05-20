@@ -1,0 +1,182 @@
+/* Profile.css - profile page tweaks */
+
+.sp-card {
+  background: #fff;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #eef2f7;
+  box-shadow: 0 6px 20px rgba(8,30,69,0.04);
+}
+
+h2, h3 {
+  margin: 0 0 10px 0;
+  color: #0b1226;
+}
+
+.guest-banner {
+  margin-top: 6px;
+  color: #92400e;
+  background: #fff7ed;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ffe6c7;
+}
+
+.btn-outline, .btn-reset {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e6eef6;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.verify-banner {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.verify-text {
+  font-weight: 600;
+}
+
+.verify-actions {
+  margin-top: 10px;
+}
+
+.verify-notice {
+  margin-top: 8px;
+  color: #166534;
+}
+
+.verify-error {
+  margin-top: 8px;
+  color: #b92222;
+}
+
+.knowledge-card {
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-text {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.knowledge-mini-list {
+  display: grid;
+  gap: 4px;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.knowledge-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.reset-card {
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff7f7;
+  display: grid;
+  gap: 10px;
+}
+
+.btn-danger {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #ef4444;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.btn-danger:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.reset-notice {
+  color: #166534;
+  font-weight: 600;
+}
+
+.reset-error {
+  color: #b92222;
+  font-weight: 600;
+}
+
+.privacy-card {
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid #d1fae5;
+  border-radius: 10px;
+  background: #f6fffb;
+  display: grid;
+  gap: 10px;
+}
+
+.privacy-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.privacy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.privacy-status {
+  color: #334155;
+  font-size: 13px;
+}
+
+.privacy-folders {
+  display: grid;
+  gap: 6px;
+}
+
+.privacy-folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
