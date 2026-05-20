@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-<<<<<<< HEAD
 const UserSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true },
@@ -23,13 +22,4 @@ const UserSchema = new mongoose.Schema(
 
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);
-=======
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true, index: true },
-  passwordHash: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-module.exports = mongoose.model("User", UserSchema);
->>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
+ e602d9f76dae2518e38a65a9afec0f77ae0358a8

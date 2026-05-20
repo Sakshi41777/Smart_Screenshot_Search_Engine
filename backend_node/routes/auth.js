@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // backend_node/routes/auth.js
 const express = require("express");
 const router = express.Router();
@@ -665,52 +664,5 @@ async function handleResendVerification(req, res) {
 router.post("/resend-verification", handleResendVerification);
 router.post("/resend", handleResendVerification);
 
-=======
-const express = require("express");
-const router = express.Router();
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
-const TOKEN_EXPIRES_IN = process.env.TOKEN_EXPIRES_IN || "7d";
-
-router.post("/register", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: "Missing fields" });
-
-    const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(400).json({ message: "Email already registered" });
-
-    const hash = await bcrypt.hash(password, 10);
-    const user = new User({ name, email: email.toLowerCase(), passwordHash: hash });
-    await user.save();
-    return res.json({ ok: true, user: { id: user._id, name: user.name, email: user.email }});
-  } catch(err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
-
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Missing fields" });
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
-
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(400).json({ message: "Invalid credentials" });
-
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES_IN });
-    return res.json({ ok: true, token, user: { id: user._id, name: user.name, email: user.email }});
-  } catch(err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
-
->>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
+ e602d9f76dae2518e38a65a9afec0f77ae0358a8
 module.exports = router;
