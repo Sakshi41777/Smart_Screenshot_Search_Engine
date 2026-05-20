@@ -1,38 +1,64 @@
 // client/src/CreateAccount.js
 import React, { useState } from "react";
+<<<<<<< HEAD
 import api from "./api";
 import "./CreateAccount.css";
 
 const DESKTOP_GOOGLE_TIMEOUT_MS = 5 * 60 * 1000;
 const DESKTOP_GOOGLE_POLL_MS = 900;
+=======
+import axios from "axios";
+import "./CreateAccount.css";
+
+const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:5000";
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 export default function CreateAccount({ onRegistered, onShowLogin }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const isDesktopApp = Boolean(window.electronAPI?.openExternal);
+=======
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
   function passwordStrength(pw) {
     if (!pw) return 0;
     let score = 0;
+<<<<<<< HEAD
     if (pw.length >= 8) score++;
     if (/[A-Z]/.test(pw)) score++;
     if (/[0-9]/.test(pw)) score++;
     if (/[^A-Za-z0-9]/.test(pw)) score++;
+=======
+    if (pw.length >= 8) score += 1;
+    if (/[A-Z]/.test(pw)) score += 1;
+    if (/[0-9]/.test(pw)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     return score;
   }
 
   const strength = passwordStrength(password);
   const strengthLabels = ["", "Too short", "Weak", "Okay", "Strong"];
 
+<<<<<<< HEAD
   /* ---------- Register with email/password ---------- */
   async function handleRegister(e) {
     e.preventDefault();
     setError("");
     setSuccess("");
+=======
+  async function handleRegister(e) {
+    e.preventDefault();
+    setError("");
+    setMsg("");
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError("Please fill all fields.");
@@ -41,12 +67,18 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
 
     setLoading(true);
     try {
+<<<<<<< HEAD
       const res = await api.post("/api/auth/register", {
+=======
+      // use axios (was missing)
+      await axios.post(`${API_BASE}/api/auth/register`, {
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
         name: name.trim(),
         email: email.trim(),
         password,
       });
 
+<<<<<<< HEAD
       const { token, user, requiresVerification, message } = res.data || {};
       if (requiresVerification) {
         setSuccess(message || "Verification email sent. Please verify to sign in.");
@@ -62,11 +94,20 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
           err.message ||
           "Registration failed"
       );
+=======
+      setMsg("Registered successfully. Please sign in.");
+      // switch to login view
+      onShowLogin && onShowLogin();
+    } catch (err) {
+      console.error("register err", err);
+      setError(err?.response?.data?.message || err.message || "Registration failed");
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
     } finally {
       setLoading(false);
     }
   }
 
+<<<<<<< HEAD
   async function handleDesktopGoogleRegister() {
     setError("");
     setSuccess("");
@@ -134,11 +175,14 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
     }
   }
 
+=======
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   return (
     <div className="reg-root">
       <div className="reg-card">
         <div className="reg-left">
           <div className="reg-image-wrap">
+<<<<<<< HEAD
             <img
               src={`${process.env.PUBLIC_URL}/register-illustration.png`}
               alt="illustration"
@@ -167,12 +211,16 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
             >
               Continue as Guest
             </button>
+=======
+            <img src="/register-illustration.png" alt="illustration" className="reg-image" />
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
           </div>
         </div>
 
         <div className="reg-right">
           <div className="reg-top">
             <h1>Create account</h1>
+<<<<<<< HEAD
             <p className="muted">
               Sign up to access Visual Memory Search App
             </p>
@@ -204,11 +252,21 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+=======
+            <p className="muted">Sign up to access Visual Memory Search App</p>
+          </div>
+
+          <form className="reg-form" onSubmit={handleRegister}>
+            <input className="reg-input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="reg-input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="reg-input pw" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
             <div className="pw-row">
               <div className="pw-bar">
                 <div className={`pw-fill s${strength}`} />
               </div>
+<<<<<<< HEAD
               <div className="pw-label">
                 {strengthLabels[strength] || ""}
               </div>
@@ -216,6 +274,13 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
 
             {error && <div className="reg-error">{error}</div>}
             {success && <div className="reg-success">{success}</div>}
+=======
+              <div className="pw-label">{strengthLabels[strength] || ""}</div>
+            </div>
+
+            {error && <div className="reg-error">{error}</div>}
+            {msg && <div className="reg-msg">{msg}</div>}
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
             <button className="reg-btn" type="submit" disabled={loading}>
               {loading ? "Registering..." : "Register"}
@@ -223,11 +288,15 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
 
             <div className="reg-footer">
               Already registered?{" "}
+<<<<<<< HEAD
               <button
                 type="button"
                 className="link-like"
                 onClick={onShowLogin}
               >
+=======
+              <button type="button" className="link-like" onClick={() => onShowLogin && onShowLogin()}>
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
                 Login
               </button>
             </div>

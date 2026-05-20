@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const { contextBridge, ipcRenderer } = require("electron");
 
 // Backend URL getter (synchronous fallback)
@@ -35,3 +36,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
 contextBridge.exposeInMainWorld("BACKEND_BASE_URL", "http://127.0.0.1:5001");
 
 console.log("[Preload] Electron environment ready");
+=======
+// electron/preload.js
+const { contextBridge, ipcRenderer } = require('electron');
+
+console.log('[preload] loaded');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  openPythonApp: (opts = {}) => ipcRenderer.invoke('openPythonApp', opts),
+  stopPythonApp: () => ipcRenderer.invoke('stopPythonApp'),
+  isPythonRunning: () => ipcRenderer.invoke('isPythonRunning'),
+  onPythonLog: (cb) => {
+    const listener = (e, payload) => cb(payload);
+    ipcRenderer.on('python-log', listener);
+    return () => ipcRenderer.removeListener('python-log', listener);
+  }
+});
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8

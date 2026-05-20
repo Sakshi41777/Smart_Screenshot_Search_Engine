@@ -1,6 +1,7 @@
 // client/src/Welcome.js
 import React, { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+<<<<<<< HEAD
 import { useNavigate } from "react-router-dom";
 import "./Welcome.css";
 
@@ -15,13 +16,31 @@ const SAMPLE_IMAGES = [
 export default function Welcome({ onAuth }) {
   const navigate = useNavigate();
 
+=======
+import "./Welcome.css";
+
+export default function Welcome() {
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   const titleRef = useRef(null);
   const subRef = useRef(null);
   const btnRef = useRef(null);
   const fallingRef = useRef(null);
+<<<<<<< HEAD
   const [showOptions, setShowOptions] = useState(false);
 
   /* ---------- Falling background animation ---------- */
+=======
+  const [message, setMessage] = useState("");
+
+  const SAMPLE_IMAGES = [
+    "/screenshots/ss1.png",
+    "/screenshots/ss2.png",
+    "/screenshots/ss3.png",
+    "/screenshots/ss4.png",
+  ];
+
+  // Falling animation
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const container = fallingRef.current;
     if (!container) return;
@@ -48,8 +67,12 @@ export default function Welcome({ onAuth }) {
         duration: 6 + Math.random() * 6,
         repeat: -1,
         ease: "none",
+<<<<<<< HEAD
         onRepeat: () =>
           gsap.set(img, { xPercent: Math.random() * 100, y: -150 }),
+=======
+        onRepeat: () => gsap.set(img, { xPercent: Math.random() * 100, y: -150 }),
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
       });
 
       items.push(img);
@@ -57,10 +80,19 @@ export default function Welcome({ onAuth }) {
 
     for (let i = 0; i < COUNT; i++) spawn(i);
 
+<<<<<<< HEAD
     return () => items.forEach((it) => it.remove());
   }, []);
 
   /* ---------- Intro animations ---------- */
+=======
+    return () => {
+      items.forEach((it) => it.remove());
+    };
+  }, []);
+
+  // GSAP intro animation
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const a = titleRef.current;
     const b = subRef.current;
@@ -78,6 +110,7 @@ export default function Welcome({ onAuth }) {
     return () => tl.kill();
   }, []);
 
+<<<<<<< HEAD
   /* ---------- CTA handlers ---------- */
   function handleMainClick() {
     gsap.fromTo(
@@ -107,6 +140,29 @@ export default function Welcome({ onAuth }) {
         },
       });
     }
+=======
+  // Handle the button click
+  async function handleClick() {
+    gsap.fromTo(btnRef.current, { scale: 1 }, { scale: 0.92, duration: 0.08, yoyo: true, repeat: 1 });
+
+    if (window?.electronAPI?.openPythonApp) {
+      setMessage("Launching desktop application...");
+
+      try {
+        // startPythonApp(args) → Electron spawns Python → '--from-electron'
+        const res = await window.electronAPI.openPythonApp({ args: ["--from-electron"] });
+        console.log("Python app started:", res);
+        setMessage("Desktop app opened!");
+      } catch (err) {
+        console.error(err);
+        setMessage("Failed to launch Python app.");
+      }
+
+      return;
+    }
+
+    setMessage("Not running inside Electron. Use 'npm run dev'.");
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
   }
 
   return (
@@ -114,6 +170,7 @@ export default function Welcome({ onAuth }) {
       <div className="falling-back" ref={fallingRef} />
 
       <div className="center-stage">
+<<<<<<< HEAD
         <h1 className="wm-title" ref={titleRef}>
           Welcome to Visual Memory Search
         </h1>
@@ -148,6 +205,23 @@ export default function Welcome({ onAuth }) {
               Guest users can explore the app, but features like history, saved
               items, and analytics are disabled.
             </p>
+=======
+        <h1 className="wm-title" ref={titleRef}>Welcome to Visual Memory Search</h1>
+
+        <h2 className="wm-sub" ref={subRef}>- Smart Screenshot Search Engine</h2>
+
+        <button
+          className="wm-cta"
+          ref={btnRef}
+          onClick={handleClick}
+        >
+          Search Screenshots
+        </button>
+
+        {message && (
+          <div style={{ marginTop: 14, color: "#cfe2ff" }}>
+            {message}
+>>>>>>> e602d9f76dae2518e38a65a9afec0f77ae0358a8
           </div>
         )}
       </div>
