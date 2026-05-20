@@ -1,0 +1,264 @@
+/* client/src/Welcome.css - improved for GSAP + responsive layout */
+
+:root{
+  --bg: #0f1724;
+  --overlay: rgba(8, 12, 20, 0.46);
+  --title: #ffffff;
+  --sub: #cfe2ff;
+  --cta-bg: linear-gradient(90deg,#2b6be6,#1d4ed8);
+  --cta-shadow: 0 10px 30px rgba(29,78,216,0.22);
+}
+
+/* full page reset */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  .welcome-mini-root {
+  background: radial-gradient(1200px 600px at 10% 10%, #07103a 0%, #081129 18%, #071727 60%, #020617 100%);
+  background-color: #0b1226;
+}
+
+  overflow: hidden; /* prevent accidental scrolling from falling images */
+}
+
+
+.welcome-mini-root {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  /* DARK NAVY BACKGROUND HERE */
+  background: radial-gradient(
+    1200px 600px at 10% 10%,
+    #07103a 0%,
+    #081129 18%,
+    #071727 60%,
+    #020617 100%
+  );
+}
+
+
+/* falling images container (behind content) */
+.falling-back {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden; /* ensure images clipped, not causing scroll */
+}
+
+/* single falling item - created dynamically */
+.falling-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 120px;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(2,6,23,0.6);
+  transform-origin: center;
+  opacity: 0.95;
+  filter: saturate(1.05) contrast(0.98);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* centered stage (foreground) */
+.center-stage {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  color: var(--title);
+  padding: 32px 20px;
+  max-width: 920px;
+  width: calc(100% - 48px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* big headline */
+.wm-title {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 6px 30px rgba(3,8,20,0.5);
+  line-height: 1.05;
+}
+
+/* subtitle (split into spans for stagger). GSAP expects spans to start invisible. */
+.wm-sub {
+  margin: 14px 0 22px 0;
+  color: var(--sub);
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-block;
+  /* baseline for inner spans */
+}
+
+.wm-sub span {
+  display: inline-block;
+  opacity: 0;                 /* GSAP will animate to 1 */
+  transform: translateY(6px); /* GSAP will animate to translateY(0) */
+  will-change: transform, opacity;
+  margin-right: 2px;
+}
+
+/* CTA button */
+.wm-cta {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 14px 28px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: var(--cta-bg);
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: var(--cta-shadow);
+  transform-origin: center;
+  outline: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.wm-cta:active { transform: scale(0.98); }
+.wm-cta:focus { box-shadow: 0 14px 40px rgba(29,78,216,0.30); }
+
+/* friendly message under CTA (browser fallback / status) */
+.welcome-msg {
+  margin-top: 14px;
+  color: var(--sub);
+  font-size: 14px;
+  opacity: 0.95;
+  max-width: 720px;
+  line-height: 1.35;
+}
+
+/* small responsive adjustments */
+@media (max-width: 820px) {
+  .center-stage { padding: 24px; width: calc(100% - 40px); }
+  .wm-title { font-size: clamp(24px, 6.6vw, 38px); }
+  .wm-sub { font-size: 14px; }
+  .falling-img { width: 100px; }
+  .wm-cta { padding: 12px 20px; font-size: 15px; }
+}
+
+@media (max-width: 520px) {
+  html, body, #root { background-position: center top; }
+  .wm-title { font-size: 22px; }
+  .wm-sub { font-size: 13px; }
+  .falling-img { width: 86px; }
+  .wm-cta { padding: 10px 16px; font-size: 14px; }
+}
+
+
+.wm-title {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  color: #ffffff;                     /* PURE WHITE - visible always */
+  text-shadow: 0 6px 30px rgba(3,8,20,0.5);
+}
+
+.wm-sub {
+  margin: 14px 0 22px 0;
+  color: #7cc4ff;                     /* FIXED: brighter + visible */
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: 600;
+  display: inline-block;
+}
+
+.wm-sub span {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.welcome-msg {
+  margin-top: 14px;
+  color: #b8caff;                     /* FIXED: better visibility */
+  font-size: 14px;
+  opacity: 0.95;
+  text-align: center;
+}
+
+
+/* --- Welcome options container --- */
+.wm-options {
+  margin-top: 22px;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.wm-options-note {
+  color: #d9e6ff;
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+/* --- Row Wrapper --- */
+.wm-options-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* --- Button Base Style --- */
+.wm-option-btn,
+.wm-option-ghost {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+/* --- Login & Register buttons --- */
+.wm-option-btn {
+  background: #ffffff;
+  color: #0b1226;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(255,255,255,0.08);
+}
+
+.wm-option-btn:hover {
+  background: #f5f7ff;
+  transform: translateY(-2px);
+}
+
+/* --- Guest button (outlined style) --- */
+.wm-option-ghost {
+  background: transparent;
+  color: #d8e4ff;
+  border: 1px solid rgba(216,228,255,0.4);
+}
+
+.wm-option-ghost:hover {
+  background: rgba(255,255,255,0.06);
+  transform: translateY(-2px);
+}
+
+/* --- Guest note under buttons --- */
+.wm-guest-note {
+  color: #b8caff;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

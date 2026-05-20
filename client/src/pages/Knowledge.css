@@ -1,0 +1,63 @@
+.knowledge-page-card {
+  display: grid;
+  gap: 14px;
+}
+
+.k-subtitle {
+  margin: 0;
+  color: #475569;
+}
+
+.k-section {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.k-section h3 {
+  margin: 0;
+}
+
+.k-steps {
+  display: grid;
+  gap: 6px;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.k-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.k-group {
+  display: grid;
+  gap: 8px;
+}
+
+.k-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.k-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.k-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

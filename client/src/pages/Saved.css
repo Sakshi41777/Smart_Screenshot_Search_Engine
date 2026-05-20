@@ -1,0 +1,41 @@
+/* Saved.css - list / card styles for saved items */
+
+.sp-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #eef2f7;
+  box-shadow: 0 6px 20px rgba(8,30,69,0.04);
+}
+
+.result-row {
+  display:flex;
+  gap:12px;
+  padding:12px;
+  align-items:center;
+  border-bottom: 1px solid #f3f7fb;
+}
+.result-row:last-child { border-bottom: none; }
+
+.result-left img {
+  width:120px;
+  height:80px;
+  object-fit:cover;
+  border-radius:8px;
+}
+
+.saved-thumb {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.no-results {
+  padding: 18px;
+  color: #6b7280;
+  background: #fbfdff;
+  border-radius: 10px;
+  border: 1px solid #f3f7fb;
+  text-align: center;
+}

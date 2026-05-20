@@ -1,0 +1,77 @@
+# -------------------
+# Node / React
+# -------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+client/build/
+client/node_modules/
+
+# React public screenshots or temporary data
+public/screenshots/
+
+# -------------------
+# Python
+# -------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+.venv/
+env/
+venv/
+app/data/
+app/screenshots/
+
+# -------------------
+# Electron
+# -------------------
+electron/dist/
+electron/out/
+*.asar
+
+# -------------------
+# Environment Files
+# -------------------
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Example env should be committed
+!.env.example
+
+# -------------------
+# OS / Editor files
+# -------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# -------------------
+# Build Artifacts
+# -------------------
+*.exe
+*.dll
+*.deb
+*.zip
+*.tar
+*.gz
+*.7z
+
+# -------------------
+# Cache
+# -------------------
+.cache/
+.temp/
+backend_node/uploads/
+backend_node/thumb_cache/

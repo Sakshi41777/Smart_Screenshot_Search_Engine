@@ -1,0 +1,81 @@
+{
+  "name": "smart-screenshot-desktop",
+  "version": "1.0.0",
+  "description": "Smart Screenshot Search Engine - Electron + React + Python Desktop App",
+  "main": "electron/main.js",
+  "author": "Sakshi",
+  "license": "MIT",
+  "scripts": {
+    "client-install": "cd client && npm install",
+    "client-build": "cd client && npm run build",
+    "rebuild-backend": "node scripts/try-rebuild.js",
+    "kill-app": "powershell -Command \"taskkill /F /IM \"Smart Screenshot Search Engine.exe\" /T /FI \"STATUS eq RUNNING\" 2> $null; taskkill /F /IM electron.exe /T /FI \"STATUS eq RUNNING\" 2> $null\"",
+    "dev": "npm run dev:desktop",
+    "dev:desktop": "npm run client-build && cross-env NODE_ENV=development concurrently \"cd backend_node && npm run dev\" \"wait-on http://127.0.0.1:5001/health && electron .\"",
+    "start": "npm run client-build && cross-env NODE_ENV=production concurrently \"cd backend_node && npm start\" \"wait-on http://127.0.0.1:5001/health && electron .\"",
+    "pack": "npm run client-build && npm run rebuild-backend && electron-builder --dir",
+    "dist": "npm run client-build && npm run rebuild-backend && electron-builder"
+  },
+  "devDependencies": {
+    "baseline-browser-mapping": "^2.10.29",
+    "concurrently": "^7.0.0",
+    "cross-env": "^7.0.0",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-rebuild": "^3.2.9",
+    "wait-on": "^7.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "build": {
+    "appId": "com.smartshot.desktop",
+    "productName": "Smart Screenshot Search Engine",
+    "files": [
+      "electron/**/*",
+      "client/build/**/*",
+      "backend_node/**/*",
+      {
+        "from": "app/dist/smartshot",
+        "to": "python",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "backend_node/**"
+    ],
+    "extraResources": [
+      {
+        "from": "backend_node",
+        "to": "app/backend_node",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "electron/resources"
+    },
+    "asar": true,
+    "win": {
+      "target": "nsis",
+      "icon": "electron/resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Smart Screenshot Search Engine",
+      "include": "electron/installer.nsh"
+    }
+  }
+}
