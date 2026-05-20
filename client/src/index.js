@@ -10,5 +10,4 @@ root.render(
   <HashRouter>
     <App />
   </HashRouter>
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 );
