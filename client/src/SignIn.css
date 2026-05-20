@@ -5,7 +5,6 @@
    - image will scale instead of forcing overflow
    - small screens still work with internal scrolling
 */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 :root {
   --page-bg: #e7eefc;
@@ -21,7 +20,6 @@ html, body, #root {
   font-family: "Inter", "Segoe UI", Roboto, sans-serif;
   background: var(--page-bg);
   box-sizing: border-box;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 /* center stage */
@@ -39,7 +37,6 @@ html, body, #root {
 .signin-card {
   width: 1100px;
   max-width: 98%;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   display: flex;
   border-radius: 18px;
   overflow: hidden;
@@ -50,7 +47,6 @@ html, body, #root {
   height: min(80vh, 720px);
   max-height: calc(100vh - 64px);
   align-items: stretch; /* equal height columns */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 /* left image panel */
@@ -63,7 +59,6 @@ html, body, #root {
   padding: 32px;
   box-sizing: border-box;
   flex-direction: column; /* stack image + left-cta */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 .signin-image-wrap {
@@ -80,7 +75,6 @@ html, body, #root {
   max-width: 86%;
   height: auto;
   max-height: calc(80vh - 200px); /* responsive cap relative to viewport */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   border-radius: 10px;
   background: #fff;
   padding: 18px;
@@ -96,7 +90,6 @@ html, body, #root {
   box-sizing: border-box;
 
   /* center form content vertically while allowing internal scrolling if absolutely necessary */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -107,7 +100,6 @@ html, body, #root {
 .signin-right form {
   max-height: calc(80vh - 160px);
   overflow: visible;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 }
 
 /* headings & labels */
@@ -150,7 +142,6 @@ html, body, #root {
   cursor: pointer;
 }
 .btn-resend:disabled { opacity: 0.7; cursor: default; }
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 /* primary button */
 .btn-primary {
@@ -226,7 +217,6 @@ html, body, #root {
 }
 
 /* Responsive: on narrow screens, move left CTAs under the form (so they are easy to tap) */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 @media (max-width: 980px) {
   .signin-card {
     width: 96%;
@@ -262,7 +252,6 @@ html, body, #root {
 
 /* For very short viewports allow the right form to scroll internally
    rather than causing the whole page to overflow */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 @media (max-height: 520px) {
   .signin-card { height: auto; max-height: none; }
   .signin-right form { max-height: 320px; overflow: auto; }

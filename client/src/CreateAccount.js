@@ -5,7 +5,6 @@ import "./CreateAccount.css";
 
 const DESKTOP_GOOGLE_TIMEOUT_MS = 5 * 60 * 1000;
 const DESKTOP_GOOGLE_POLL_MS = 900;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
 export default function CreateAccount({ onRegistered, onShowLogin }) {
   const [name, setName] = useState("");
@@ -15,7 +14,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const isDesktopApp = Boolean(window.electronAPI?.openExternal);
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
   function passwordStrength(pw) {
     if (!pw) return 0;
@@ -24,7 +22,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
     if (/[A-Z]/.test(pw)) score++;
     if (/[0-9]/.test(pw)) score++;
     if (/[^A-Za-z0-9]/.test(pw)) score++;
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
     return score;
   }
 
@@ -36,7 +33,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
     e.preventDefault();
     setError("");
     setSuccess("");
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError("Please fill all fields.");
@@ -46,7 +42,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
     setLoading(true);
     try {
       const res = await api.post("/api/auth/register", {
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
         name: name.trim(),
         email: email.trim(),
         password,
@@ -67,7 +62,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
           err.message ||
           "Registration failed"
       );
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
     } finally {
       setLoading(false);
     }
@@ -140,7 +134,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
     }
   }
 
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   return (
     <div className="reg-root">
       <div className="reg-card">
@@ -174,7 +167,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
             >
               Continue as Guest
             </button>
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
           </div>
         </div>
 
@@ -212,7 +204,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
             <div className="pw-row">
               <div className="pw-bar">
@@ -225,7 +216,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
 
             {error && <div className="reg-error">{error}</div>}
             {success && <div className="reg-success">{success}</div>}
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 
             <button className="reg-btn" type="submit" disabled={loading}>
               {loading ? "Registering..." : "Register"}
@@ -238,7 +228,6 @@ export default function CreateAccount({ onRegistered, onShowLogin }) {
                 className="link-like"
                 onClick={onShowLogin}
               >
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
                 Login
               </button>
             </div>

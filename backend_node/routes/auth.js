@@ -664,5 +664,4 @@ async function handleResendVerification(req, res) {
 router.post("/resend-verification", handleResendVerification);
 router.post("/resend", handleResendVerification);
 
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
 module.exports = router;

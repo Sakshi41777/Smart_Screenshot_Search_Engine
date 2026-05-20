@@ -15,7 +15,6 @@ const SAMPLE_IMAGES = [
 export default function Welcome({ onAuth }) {
   const navigate = useNavigate();
 
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   const titleRef = useRef(null);
   const subRef = useRef(null);
   const btnRef = useRef(null);
@@ -23,7 +22,6 @@ export default function Welcome({ onAuth }) {
   const [showOptions, setShowOptions] = useState(false);
 
   /* ---------- Falling background animation ---------- */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const container = fallingRef.current;
     if (!container) return;
@@ -52,7 +50,6 @@ export default function Welcome({ onAuth }) {
         ease: "none",
         onRepeat: () =>
           gsap.set(img, { xPercent: Math.random() * 100, y: -150 }),
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
       });
 
       items.push(img);
@@ -64,7 +61,6 @@ export default function Welcome({ onAuth }) {
   }, []);
 
   /* ---------- Intro animations ---------- */
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   useEffect(() => {
     const a = titleRef.current;
     const b = subRef.current;
@@ -111,7 +107,6 @@ export default function Welcome({ onAuth }) {
         },
       });
     }
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
   }
 
   return (
@@ -153,7 +148,6 @@ export default function Welcome({ onAuth }) {
               Guest users can explore the app, but features like history, saved
               items, and analytics are disabled.
             </p>
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
           </div>
         )}
       </div>

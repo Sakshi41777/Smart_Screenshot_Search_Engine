@@ -35,4 +35,3 @@ contextBridge.exposeInMainWorld("electronAPI", {
 contextBridge.exposeInMainWorld("BACKEND_BASE_URL", "http://127.0.0.1:5001");
 
 console.log("[Preload] Electron environment ready");
- e602d9f76dae2518e38a65a9afec0f77ae0358a8
