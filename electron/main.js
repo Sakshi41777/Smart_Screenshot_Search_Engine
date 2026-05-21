@@ -276,6 +276,120 @@ function saveBackgroundSettings(nextSettings = {}) {
   return merged;
 }
 
+ipcMain.handle("get-backend-url", async () => BACKEND_BASE_URL);
+
+ipcMain.handle("select-folder", async () => {
+  const result = await dialog.showOpenDialog(mainWindow || null, {
+    title: "Select folder",
+    properties: ["openDirectory", "multiSelections"],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
+
+ipcMain.handle("select-image", async () => {
+  const result = await dialog.showOpenDialog(mainWindow || null, {
+    title: "Select image",
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Images",
+        extensions: ["jpg", "jpeg", "png", "bmp", "gif", "webp"],
+      },
+    ],
+  });
+  return result.canceled ? null : result.filePaths[0] || null;
+});
+
+ipcMain.handle("get-default-index-folders", async () => {
+  return loadBackgroundSettings().folders || [];
+});
+
+ipcMain.handle("get-background-index-settings", async () => {
+  return loadBackgroundSettings();
+});
+
+ipcMain.handle("set-background-index-settings", async (_, payload) => {
+  return saveBackgroundSettings(payload);
+});
+
+ipcMain.handle("merge-background-index-folders", async (_, folders = []) => {
+  const existing = loadBackgroundSettings().folders || [];
+  const merged = normalizeFolderList([...existing, ...(Array.isArray(folders) ? folders : [])]);
+  return saveBackgroundSettings({ folders: merged });
+});
+
+ipcMain.handle("open-path", async (_, targetPath) => {
+  if (!targetPath) return false;
+  try {
+    await shell.openPath(String(targetPath));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("open-external", async (_, targetUrl) => {
+  if (!targetUrl) return false;
+  try {
+    await shell.openExternal(String(targetUrl));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("show-item-in-folder", async (_, targetPath) => {
+  if (!targetPath) return false;
+  try {
+    return shell.showItemInFolder(String(targetPath));
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("delete-file", async (_, targetPath) => {
+  if (!targetPath) return false;
+  try {
+    fs.unlinkSync(String(targetPath));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("copy-text", async (_, text) => {
+  try {
+    clipboard.writeText(String(text || ""));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("copy-image", async (_, targetPath) => {
+  if (!targetPath) return false;
+  try {
+    const image = nativeImage.createFromPath(String(targetPath));
+    if (image.isEmpty()) return false;
+    clipboard.writeImage(image);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("stop-python-app", async () => {
+  try {
+    if (backendProcess) {
+      backendProcess.kill();
+      backendProcess = null;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+});
+
 function ensureTray() {
   if (tray) return tray;
   const trayIcon = fs.existsSync(iconPath)

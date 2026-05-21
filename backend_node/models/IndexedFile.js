@@ -35,10 +35,42 @@ const IndexedFileSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Renderer compatibility: older UI paths read extractText directly.
+    extractText: {
+      type: String,
+      default: "",
+    },
+
+    thumbnailUrl: {
+      type: String,
+      default: "",
+    },
+
+    size: {
+      type: String,
+      default: "",
+    },
+
     sizeKB: {
       type: Number,
       default: 0,
       index: true,
+    },
+
+    sizeBytes: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+
+    mtime: {
+      type: String,
+      default: "",
+    },
+
+    tags: {
+      type: [String],
+      default: [],
     },
 
     // Source file signature for incremental indexing.
