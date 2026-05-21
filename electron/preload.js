@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteFile: (targetPath) => ipcRenderer.invoke("delete-file", targetPath),
   copyText: (text) => ipcRenderer.invoke("copy-text", text),
   copyImage: (targetPath) => ipcRenderer.invoke("copy-image", targetPath),
+  stopPythonApp: () => ipcRenderer.invoke("stop-python-app"),
   getBackendUrl: () => getBackendUrlSafe(),
 });
 

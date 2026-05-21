@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactCrop from "react-image-crop";
 import { useLocation } from "react-router-dom";
 import api from "../api";
@@ -280,6 +280,87 @@ function collectTopKeywords(files = [], limit = 5) {
     .map(([word]) => word);
 }
 
+function normalizeFolderPaths(folders = []) {
+  return (Array.isArray(folders) ? folders : [])
+    .map((f) => String(f || "").trim())
+    .filter(Boolean)
+    .filter((f, idx, arr) => arr.indexOf(f) === idx);
+}
+
+function getParentFolderFromPath(rawPath = "") {
+  const full = String(rawPath || "").trim();
+  if (!full) return "";
+  if (/^[a-zA-Z]:[\\/]*$/.test(full)) return full;
+  if (/[\\/]$/.test(full)) return full.replace(/[\\/]+$/, "");
+  const parts = full.split(/[\\/]/).filter(Boolean);
+  if (!parts.length) return "";
+  const leaf = parts[parts.length - 1] || "";
+  if (/\.[a-z0-9]{1,8}$/i.test(leaf)) {
+    const idx = Math.max(full.lastIndexOf("\\"), full.lastIndexOf("/"));
+    if (idx <= 0) return "";
+    return full.slice(0, idx);
+  }
+  return full;
+}
+
+function extractFolderHintFromQuery(raw = "") {
+  const q = String(raw || "").trim();
+  if (!q) return "";
+  const m = q.match(
+    /\b(?:show|list|find)?\s*(?:the\s+)?(?:recent|latest|newest)\s+(?:files|items)?\s*(?:in|from)\s+(.+)$/i
+  );
+  if (!m?.[1]) return "";
+  return String(m[1] || "").trim().replace(/^['\"]|['\"]$/g, "");
+}
+
+function getFolderDisplayName(folderPath = "") {
+  const raw = String(folderPath || "").trim();
+  if (!raw) return "Unknown folder";
+  const normalized = raw.replace(/[/\\]+$/, "");
+  const parts = normalized.split(/[/\\]/).filter(Boolean);
+  if (parts.length) return parts[parts.length - 1];
+  const driveMatch = raw.match(/^[a-zA-Z]:/);
+  if (driveMatch) return `${driveMatch[0]} (Root)`;
+  return raw;
+}
+
+async function resolveFolderForAutoRun(incomingPath = "", incomingQuery = "") {
+  const fromPath = getParentFolderFromPath(incomingPath || "");
+  if (fromPath) return fromPath;
+
+  const hint = extractFolderHintFromQuery(incomingQuery || "");
+  if (!hint) return "";
+
+  if (window.electronAPI?.getDefaultIndexFolders) {
+    try {
+      const defaults = await window.electronAPI.getDefaultIndexFolders();
+      const rows = normalizeFolderPaths(defaults);
+      const hintLc = hint.toLowerCase();
+      const exact = rows.find(
+        (p) => getFolderDisplayName(p).toLowerCase() === hintLc
+      );
+      if (exact) return exact;
+      const fuzzy = rows.find((p) =>
+        getFolderDisplayName(p).toLowerCase().includes(hintLc)
+      );
+      if (fuzzy) return fuzzy;
+    } catch {}
+  }
+
+  return "";
+}
+
+function annotateDuplicates(list = []) {
+  const counts = new Map();
+  list.forEach((f) => {
+    if (f.fileHash) counts.set(f.fileHash, (counts.get(f.fileHash) || 0) + 1);
+  });
+  return list.map((f) => ({
+    ...f,
+    _dupCount: f.fileHash ? counts.get(f.fileHash) || 0 : 0,
+  }));
+}
+
 export default function SearchPage({ user, onSignOut }) {
   const location = useLocation();
   const [query, setQuery] = useState("");
@@ -550,31 +631,6 @@ export default function SearchPage({ user, onSignOut }) {
 
   function applyChatSuggestion(suggestion) {
     setChatInput(String(suggestion || ""));
-  }
-
-  function normalizeFolderPaths(folders = []) {
-    return (Array.isArray(folders) ? folders : [])
-      .map((f) => String(f || "").trim())
-      .filter(Boolean)
-      .filter((f, idx, arr) => arr.indexOf(f) === idx);
-  }
-
-  function getParentFolderFromPath(rawPath = "") {
-    const full = String(rawPath || "").trim();
-    if (!full) return "";
-    if (/^[a-zA-Z]:[\\/]*$/.test(full)) return full;
-    if (/[\\/]$/.test(full)) return full.replace(/[\\/]+$/, "");
-    const parts = full.split(/[\\/]/).filter(Boolean);
-    if (!parts.length) return "";
-    const leaf = parts[parts.length - 1] || "";
-    // If last segment looks like a file (has dot extension), return parent.
-    if (/\.[a-z0-9]{1,8}$/i.test(leaf)) {
-      const idx = Math.max(full.lastIndexOf("\\"), full.lastIndexOf("/"));
-      if (idx <= 0) return "";
-      return full.slice(0, idx);
-    }
-    // Otherwise treat as folder path directly.
-    return full;
   }
 
   function extractFolderHintFromQuery(raw = "") {
@@ -1202,7 +1258,7 @@ export default function SearchPage({ user, onSignOut }) {
     }
   }
 
-  async function startCameraStream() {
+  const startCameraStream = useCallback(async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError("Camera not supported in this browser.");
@@ -1220,14 +1276,14 @@ export default function SearchPage({ user, onSignOut }) {
       console.error("Camera error:", err);
       setCameraError("Unable to access camera.");
     }
-  }
+  }, [cameraVideoRef]);
 
-  function stopCameraStream() {
+  const stopCameraStream = useCallback(() => {
     if (cameraStream) {
       cameraStream.getTracks().forEach((t) => t.stop());
       setCameraStream(null);
     }
-  }
+  }, [cameraStream]);
 
   function openCameraModal() {
     setCameraError("");
@@ -1654,7 +1710,7 @@ export default function SearchPage({ user, onSignOut }) {
       });
   }
 
-  async function runSearch(options = {}) {
+  const runSearch = useCallback(async (options = {}) => {
     const effectiveQuery = String(options.query ?? query ?? "").trim();
     const preferredPath = options.path || null;
     const selectedImage = pendingImageFile;
@@ -1758,18 +1814,7 @@ export default function SearchPage({ user, onSignOut }) {
       setPendingSearchAfterIndex(false);
       setLoading(false);
     }
-  }
-
-  function annotateDuplicates(list = []) {
-    const counts = new Map();
-    list.forEach((f) => {
-      if (f.fileHash) counts.set(f.fileHash, (counts.get(f.fileHash) || 0) + 1);
-    });
-    return list.map((f) => ({
-      ...f,
-      _dupCount: f.fileHash ? counts.get(f.fileHash) || 0 : 0,
-    }));
-  }
+  }, [query, pendingImageFile, selectedFolders, selected, results, isTypeChosen, canSearch, user, api, ensureIndexedForSearch, normalizeFiles, applyFiltersAndSort, annotateDuplicates, showActionMessage]);
 
   useEffect(() => {
     if (showCameraModal && captureSource === "camera" && !captureUrl) {
@@ -1778,7 +1823,7 @@ export default function SearchPage({ user, onSignOut }) {
     if (!showCameraModal) {
       stopCameraStream();
     }
-  }, [showCameraModal, captureUrl, captureSource]);
+  }, [showCameraModal, captureUrl, captureSource, startCameraStream, stopCameraStream]);
 
   useEffect(() => {
     return () => {
@@ -1823,7 +1868,7 @@ export default function SearchPage({ user, onSignOut }) {
         scopeFolders: incomingFolder ? [incomingFolder] : [],
       });
     })();
-  }, [location?.state]);
+  }, [location?.state, resolveFolderForAutoRun, getFolderDisplayName]);
 
   useEffect(() => {
     if (!pendingAutoRun || loading) return;
@@ -1842,12 +1887,12 @@ export default function SearchPage({ user, onSignOut }) {
       });
       setPendingAutoRun(null);
     })();
-  }, [pendingAutoRun, loading, query]);
+  }, [pendingAutoRun, loading, query, runSearch]);
 
   useEffect(() => {
     if (!pendingSearchAfterIndex || !canSearch || loading) return;
     runSearch();
-  }, [pendingSearchAfterIndex, canSearch, loading]);
+  }, [pendingSearchAfterIndex, canSearch, loading, runSearch]);
 
   return (
     <div className="sp-root">
