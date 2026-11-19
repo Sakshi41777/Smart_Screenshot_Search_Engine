@@ -26,8 +26,8 @@
   forceKill:
     ; forcefully terminate common target processes to ensure files can be replaced
     nsExec::ExecToLog '"$SYSDIR\\taskkill.exe" /F /IM "Smart Screenshot Search Engine.exe" /T'
-    nsExec::ExecToLog '"$SYSDIR\\taskkill.exe" /F /IM "electron.exe" /T'
-    nsExec::ExecToLog '"$SYSDIR\\taskkill.exe" /F /IM "node.exe" /T'
+    ; Only stop this app. Never kill every electron.exe / node.exe on the user's PC.
+    nsExec::ExecToLog '"$SYSDIR\\taskkill.exe" /F /IM "smartshot-mongod.exe" /T'
   doneCheck:
     ; continue with install
 !macroend

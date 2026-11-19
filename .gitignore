@@ -75,3 +75,14 @@ Thumbs.db
 .temp/
 backend_node/uploads/
 backend_node/thumb_cache/
+
+# -------------------
+# Personal / local data (never commit)
+# -------------------
+data_storage/
+app/data_storage/
+backend_node/data/
+client/cleanup_backup_*/
+Smart_Screenshot_Search_Engine-*/
+# Downloaded at build time by scripts/fetch-mongod.js
+vendor/

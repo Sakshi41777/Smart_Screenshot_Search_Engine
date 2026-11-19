@@ -46,6 +46,11 @@ const isDev = process.env.NODE_ENV === "development";
 const BACKEND_HEALTH_URL = `${BACKEND_BASE_URL.replace(/\/+$/, "")}/health`;
 const BACKEND_STARTUP_TIMEOUT_MS = 30000;
 const WATCHER_DEBOUNCE_MS = 900;
+// Built-in MongoDB (installed app): private port so it never clashes with a
+// MongoDB the user may already run on 27017.
+const EMBEDDED_MONGO_PORT = Number(process.env.SMARTSHOT_MONGO_PORT || 27027);
+let mongoProcess = null;
+let embeddedMongoUri = "";
 let backendProcess = null;
 let backendSpawnedByApp = false;
 let backendLogPath = "";
@@ -452,11 +457,13 @@ async function isBackendHealthy() {
 }
 
 function resolveBackendEntry() {
+  // Installed app: the backend ships outside app.asar (resources/backend) so a
+  // plain Node process can read it. Dev: use the repo's backend_node folder.
   const candidates = [
     process.env.BACKEND_ENTRY || "",
-    path.join(app.getAppPath(), "backend_node", "index.js"),
-    path.join(process.resourcesPath, "app.asar.unpacked", "backend_node", "index.js"),
-    path.join(process.resourcesPath, "app", "backend_node", "index.js"),
+    app.isPackaged
+      ? path.join(process.resourcesPath, "backend", "index.js")
+      : path.join(__dirname, "..", "backend_node", "index.js"),
   ].filter(Boolean);
 
   for (const p of candidates) {
@@ -470,10 +477,31 @@ function resolveBackendEntry() {
   return "";
 }
 
+function getPackagedBackendEnv() {
+  // Each installation gets its own random JWT secret (never the "secret" fallback),
+  // stored in the user's app-data folder so logins survive restarts.
+  const crypto = require("crypto");
+  const secretPath = path.join(app.getPath("userData"), "jwt-secret.txt");
+  let jwtSecret = "";
+  try {
+    if (fs.existsSync(secretPath)) jwtSecret = fs.readFileSync(secretPath, "utf8").trim();
+  } catch {}
+  if (!jwtSecret) {
+    jwtSecret = crypto.randomBytes(48).toString("hex");
+    try { fs.writeFileSync(secretPath, jwtSecret, "utf8"); } catch {}
+  }
+  const env = {};
+  if (!process.env.JWT_SECRET) env.JWT_SECRET = jwtSecret;
+  if (embeddedMongoUri && !process.env.MONGO_URI) env.MONGO_URI = embeddedMongoUri;
+  return env;
+}
+
 function spawnBackendProcess(entryPath = "") {
   if (!entryPath) return false;
   try { writeMainLog('spawnBackendProcess', entryPath); } catch {}
-  const nodeBinary = resolveNodeBinary();
+  // Installed app always runs the backend on Electron's bundled Node, so users
+  // don't need Node.js installed and native modules match one runtime.
+  const nodeBinary = app.isPackaged ? "" : resolveNodeBinary();
   const useElectronNode = !nodeBinary;
   const runtime = nodeBinary || process.execPath;
   const logPath = getBackendLogPath();
@@ -489,6 +517,7 @@ function spawnBackendProcess(entryPath = "") {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
+      ...(app.isPackaged ? getPackagedBackendEnv() : {}),
       ...(useElectronNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
     },
   });
@@ -596,8 +625,93 @@ function loadFallbackPage(title, bodyLines = []) {
   }
 }
 
+function resolveEmbeddedMongoBinary() {
+  const candidates = [
+    process.env.SMARTSHOT_MONGOD_PATH || "",
+    app.isPackaged
+      ? path.join(process.resourcesPath, "mongodb", "smartshot-mongod.exe")
+      : path.join(__dirname, "..", "vendor", "mongodb", "smartshot-mongod.exe"),
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) return p;
+    } catch {}
+  }
+  return "";
+}
+
+function isPortOpen(port, host = "127.0.0.1", timeoutMs = 800) {
+  const net = require("net");
+  return new Promise((resolve) => {
+    const socket = net.connect({ port, host });
+    const done = (ok) => {
+      try { socket.destroy(); } catch {}
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs, () => done(false));
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+  });
+}
+
+async function startEmbeddedMongo() {
+  const uri = `mongodb://127.0.0.1:${EMBEDDED_MONGO_PORT}/smart_screenshot_db`;
+  // Already running (e.g. left over from a previous session)? Reuse it.
+  if (await isPortOpen(EMBEDDED_MONGO_PORT)) return uri;
+
+  const binary = resolveEmbeddedMongoBinary();
+  if (!binary) {
+    writeMainLog("embedded mongod not found; backend will use MONGO_URI from its .env if any");
+    return "";
+  }
+
+  const dbPath = path.join(app.getPath("userData"), "mongo-data");
+  const logPath = path.join(app.getPath("userData"), "mongod.log");
+  try { fs.mkdirSync(dbPath, { recursive: true }); } catch {}
+
+  writeMainLog("starting embedded mongod", binary, dbPath);
+  mongoProcess = spawn(
+    binary,
+    [
+      "--dbpath", dbPath,
+      "--port", String(EMBEDDED_MONGO_PORT),
+      "--bind_ip", "127.0.0.1",
+      "--logpath", logPath,
+      "--logappend",
+      "--wiredTigerCacheSizeGB", "0.25",
+    ],
+    { windowsHide: true, stdio: "ignore" }
+  );
+  mongoProcess.on("exit", (code) => {
+    writeMainLog("embedded mongod exited", { code });
+    mongoProcess = null;
+  });
+  mongoProcess.on("error", (err) => {
+    writeMainLog("embedded mongod spawn error", err && err.message);
+  });
+
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (await isPortOpen(EMBEDDED_MONGO_PORT)) return uri;
+    if (!mongoProcess) break;
+    await sleep(400);
+  }
+  writeMainLog("embedded mongod did not become ready; see", logPath);
+  return "";
+}
+
+function stopEmbeddedMongo() {
+  if (!mongoProcess) return;
+  try { mongoProcess.kill(); } catch {}
+  mongoProcess = null;
+}
+
 async function ensureBackendRunning() {
   if (await isBackendHealthy()) return true;
+
+  if (app.isPackaged && !process.env.MONGO_URI) {
+    embeddedMongoUri = await startEmbeddedMongo();
+  }
 
   const entryPath = resolveBackendEntry();
   if (!entryPath) {
@@ -874,6 +988,7 @@ app.on("before-quit", () => {
     backendProcess = null;
     backendSpawnedByApp = false;
   }
+  stopEmbeddedMongo();
 });
 
 app.on("activate", () => {
