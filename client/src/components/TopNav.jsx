@@ -5,6 +5,7 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon";
+import AppLogo from "./AppLogo";
 import { useDisplayName } from "../displayName";
 import { requestTour } from "./Tour";
 import "./TopNav.css";
@@ -24,9 +25,7 @@ export default function TopNav({ children }) {
   return (
     <nav className="sb-sidebar" aria-label="Main">
       <div className="sb-brand">
-        <span className="sb-brand-mark">
-          <Icon name="logo" size={20} />
-        </span>
+        <AppLogo size={34} className="sb-brand-logo" />
         <span className="sb-brand-name">SmartShot</span>
         <button
           type="button"
