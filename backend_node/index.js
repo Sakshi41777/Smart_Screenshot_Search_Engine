@@ -68,6 +68,7 @@ const itemsRoutes = require("./routes/items");
 const searchRoutes = require("./routes/search");
 const { router: progressRouter } = require("./routes/searchProgress");
 const thumbnailRoutes = require("./routes/thumbnail");
+const settingsRoutes = require("./routes/settings");
 
 app.get("/health", (_, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
@@ -82,22 +83,40 @@ app.use("/api/search", searchRoutes);
 app.use("/api/items", itemsRoutes);
 app.use("/api/saved", itemsRoutes);
 app.use("/api/thumbnail", thumbnailRoutes);
+app.use("/api/settings", settingsRoutes);
+
+// The desktop app asks for a clean database shutdown when it quits, so the
+// database never needs crash recovery on the next start.
+app.post("/internal/shutdown-db", async (req, res) => {
+  const token = process.env.SMARTSHOT_INTERNAL_TOKEN;
+  if (!token || req.get("x-internal-token") !== token) {
+    return res.status(403).json({ ok: false });
+  }
+  res.json({ ok: true });
+  try {
+    await mongoose.connection.db.admin().command({ shutdown: 1 });
+  } catch {
+    // mongod closes the connection while shutting down; that's expected.
+  }
+});
+
+async function connectMongoWithRetry(uri, attempts = 30, delayMs = 2000) {
+  for (let i = 1; i <= attempts; i += 1) {
+    try {
+      await mongoose.connect(uri, { autoIndex: true, serverSelectionTimeoutMS: 4000 });
+      console.log("MongoDB connected");
+      return true;
+    } catch (err) {
+      console.error(`MongoDB not ready (attempt ${i}/${attempts}):`, err.message);
+      if (i < attempts) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return false;
+}
 
 async function start() {
-  if (MONGO_URI) {
-    try {
-      await mongoose.connect(MONGO_URI, { autoIndex: true });
-      console.log("MongoDB connected");
-    } catch (err) {
-      console.error("MongoDB error:", err.message);
-      process.exit(1);
-    }
-  } else {
-    console.warn("MONGO_URI not set");
-  }
-
-  startMaintenanceScheduler({ logger: console });
-
+  // Start answering right away (health check passes quickly); routes that
+  // need the database reply "not ready" until the connection below succeeds.
   const server = app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
   });
@@ -125,6 +144,15 @@ async function start() {
     }
     console.error("Client error:", err.message);
   });
+
+  if (MONGO_URI) {
+    const ok = await connectMongoWithRetry(MONGO_URI);
+    if (!ok) console.error("MongoDB error: could not connect");
+  } else {
+    console.warn("MONGO_URI not set");
+  }
+
+  startMaintenanceScheduler({ logger: console });
 }
 
 start();

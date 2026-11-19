@@ -38,36 +38,39 @@
 }
 
 .infotip-pop {
-  position: absolute;
-  top: calc(100% + 8px);
-  z-index: 1000;
+  position: fixed;
+  z-index: 5000;
+  box-sizing: border-box;
   width: max-content;
-  max-width: 260px;
   padding: 9px 12px;
   border-radius: 10px;
   background: #3b2b1e;
   color: #fbf5ee;
+  font-family: "Segoe UI Variable Text", "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 12.5px;
   font-weight: 400;
   font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
   line-height: 1.45;
   text-align: left;
   white-space: normal;
+  pointer-events: none;
   box-shadow: 0 8px 24px rgba(59, 43, 30, 0.22);
 }
-
-.infotip-pop-left { left: -6px; }
-.infotip-pop-right { right: -6px; }
 
 .infotip-pop::before {
   content: "";
   position: absolute;
   top: -5px;
+  left: calc(var(--arrow-left, 16px) - 5px);
   width: 10px;
   height: 10px;
   background: #3b2b1e;
   transform: rotate(45deg);
 }
 
-.infotip-pop-left::before { left: 10px; }
-.infotip-pop-right::before { right: 10px; }
+.infotip-pop.is-above::before {
+  top: auto;
+  bottom: -5px;
+}

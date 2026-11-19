@@ -44,12 +44,16 @@ const appUserModelId = "com.smartshot.desktop";
 const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || "http://127.0.0.1:5001";
 const isDev = process.env.NODE_ENV === "development";
 const BACKEND_HEALTH_URL = `${BACKEND_BASE_URL.replace(/\/+$/, "")}/health`;
-const BACKEND_STARTUP_TIMEOUT_MS = 30000;
+// First launch after install can be slow: Windows Defender scans the
+// backend's files before they load. Wait generously instead of failing.
+const BACKEND_STARTUP_TIMEOUT_MS = 180000;
 const WATCHER_DEBOUNCE_MS = 900;
 // Built-in MongoDB (installed app): private port so it never clashes with a
 // MongoDB the user may already run on 27017.
 const EMBEDDED_MONGO_PORT = Number(process.env.SMARTSHOT_MONGO_PORT || 27027);
 let mongoProcess = null;
+// Lets only this app ask the backend to shut the database down cleanly on quit.
+const INTERNAL_TOKEN = require("crypto").randomBytes(24).toString("hex");
 let embeddedMongoUri = "";
 let backendProcess = null;
 let backendSpawnedByApp = false;
@@ -492,6 +496,9 @@ function getPackagedBackendEnv() {
   }
   const env = {};
   if (!process.env.JWT_SECRET) env.JWT_SECRET = jwtSecret;
+  env.SMARTSHOT_INTERNAL_TOKEN = INTERNAL_TOKEN;
+  // App data (e.g. optional AI key) lives in the user's AppData folder and survives updates.
+  if (!process.env.SMARTSHOT_DATA_DIR) env.SMARTSHOT_DATA_DIR = app.getPath("userData");
 
   // Google sign-in for everyone who installs the app: the build bundles
   // electron/google-oauth.json (a "Desktop app" OAuth client, git-ignored).
@@ -563,7 +570,7 @@ function spawnBackendProcess(entryPath = "") {
   if (child.stdout) {
     child.stdout.on("data", (chunk) => {
       try {
-        logStream?.write(chunk);
+        if (logStream && !logStream.writableEnded) logStream.write(chunk);
       } catch {}
     });
   }
@@ -571,7 +578,7 @@ function spawnBackendProcess(entryPath = "") {
   if (child.stderr) {
     child.stderr.on("data", (chunk) => {
       try {
-        logStream?.write(chunk);
+        if (logStream && !logStream.writableEnded) logStream.write(chunk);
         try { writeMainLog('backend stderr', String(chunk || '').slice(0,200)); } catch {}
       } catch {}
     });
@@ -670,6 +677,100 @@ function isPortOpen(port, host = "127.0.0.1", timeoutMs = 800) {
   });
 }
 
+function readLogTail(filePath, maxBytes = 4000) {
+  try {
+    const st = fs.statSync(filePath);
+    const fd = fs.openSync(filePath, "r");
+    const len = Math.min(maxBytes, st.size);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, st.size - len);
+    fs.closeSync(fd);
+    return buf.toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function mongoArgs(dbPath, logPath) {
+  return [
+    "--dbpath", dbPath,
+    "--port", String(EMBEDDED_MONGO_PORT),
+    "--bind_ip", "127.0.0.1",
+    "--logpath", logPath,
+    "--logappend",
+    "--wiredTigerCacheSizeGB", "0.25",
+  ];
+}
+
+// Watchdog: restart the database if it stops unexpectedly while the app runs.
+let mongoRestarts = 0;
+const MAX_MONGO_RESTARTS = 3;
+
+// Starts mongod once and waits until it accepts connections (or exits).
+async function tryStartMongo(binary, dbPath, logPath) {
+  const child = spawn(binary, mongoArgs(dbPath, logPath), { windowsHide: true, stdio: "ignore" });
+  mongoProcess = child;
+  let exitCode = null;
+  child.on("exit", (code) => {
+    exitCode = code;
+    writeMainLog("embedded mongod exited", { code });
+    if (mongoProcess === child) mongoProcess = null;
+  });
+  child.on("error", (err) => {
+    exitCode = -1;
+    writeMainLog("embedded mongod spawn error", err && err.message);
+  });
+
+  const deadline = Date.now() + 25000;
+  while (Date.now() < deadline) {
+    if (await isPortOpen(EMBEDDED_MONGO_PORT)) {
+      child.once("exit", () => {
+        if (isQuitting || mongoRestarts >= MAX_MONGO_RESTARTS) return;
+        mongoRestarts += 1;
+        writeMainLog("embedded mongod stopped unexpectedly; restarting", { attempt: mongoRestarts });
+        setTimeout(() => {
+          startEmbeddedMongo().catch(() => {});
+        }, 1000);
+      });
+      return true;
+    }
+    if (exitCode !== null) return false;
+    await sleep(400);
+  }
+  return false;
+}
+
+function killStrayMongo() {
+  // Only our own renamed binary, never a MongoDB the user runs themselves.
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") return resolve();
+    execFile("taskkill", ["/F", "/IM", "smartshot-mongod.exe", "/T"], { windowsHide: true }, () => resolve());
+  });
+}
+
+function runMongoRepair(binary, dbPath, logPath) {
+  return new Promise((resolve) => {
+    writeMainLog("running mongod --repair");
+    const child = spawn(binary, ["--dbpath", dbPath, "--logpath", logPath, "--logappend", "--repair"], {
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      resolve(false);
+    }, 180000);
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      writeMainLog("mongod --repair finished", { code });
+      resolve(code === 0);
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+}
+
 async function startEmbeddedMongo() {
   const uri = `mongodb://127.0.0.1:${EMBEDDED_MONGO_PORT}/smart_screenshot_db`;
   // Already running (e.g. left over from a previous session)? Reuse it.
@@ -683,37 +784,50 @@ async function startEmbeddedMongo() {
 
   const dbPath = path.join(app.getPath("userData"), "mongo-data");
   const logPath = path.join(app.getPath("userData"), "mongod.log");
+  const lockPath = path.join(dbPath, "mongod.lock");
   try { fs.mkdirSync(dbPath, { recursive: true }); } catch {}
 
   writeMainLog("starting embedded mongod", binary, dbPath);
-  mongoProcess = spawn(
-    binary,
-    [
-      "--dbpath", dbPath,
-      "--port", String(EMBEDDED_MONGO_PORT),
-      "--bind_ip", "127.0.0.1",
-      "--logpath", logPath,
-      "--logappend",
-      "--wiredTigerCacheSizeGB", "0.25",
-    ],
-    { windowsHide: true, stdio: "ignore" }
-  );
-  mongoProcess.on("exit", (code) => {
-    writeMainLog("embedded mongod exited", { code });
-    mongoProcess = null;
-  });
-  mongoProcess.on("error", (err) => {
-    writeMainLog("embedded mongod spawn error", err && err.message);
-  });
+  if (await tryStartMongo(binary, dbPath, logPath)) return uri;
 
-  const deadline = Date.now() + 20000;
-  while (Date.now() < deadline) {
-    if (await isPortOpen(EMBEDDED_MONGO_PORT)) return uri;
-    if (!mongoProcess) break;
-    await sleep(400);
+  // Recovery 1: a leftover database process or stale lock from a crash / force-quit.
+  writeMainLog("mongod failed to start; recovering. log tail:", readLogTail(logPath, 1500));
+  await killStrayMongo();
+  await sleep(1500);
+  try { fs.rmSync(lockPath, { force: true }); } catch {}
+  if (await tryStartMongo(binary, dbPath, logPath)) return uri;
+
+  // Recovery 2: let MongoDB repair its data files, then try once more.
+  await killStrayMongo();
+  await sleep(1000);
+  try { fs.rmSync(lockPath, { force: true }); } catch {}
+  if ((await runMongoRepair(binary, dbPath, logPath)) && (await tryStartMongo(binary, dbPath, logPath))) {
+    return uri;
   }
+
   writeMainLog("embedded mongod did not become ready; see", logPath);
   return "";
+}
+
+// Ask the backend to shut MongoDB down cleanly, then wait for it to exit.
+async function shutdownEmbeddedMongoGracefully(timeoutMs = 6000) {
+  if (!mongoProcess) return;
+  const proc = mongoProcess;
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 2500);
+    await fetch(`${BACKEND_BASE_URL.replace(/\/+$/, "")}/internal/shutdown-db`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-token": INTERNAL_TOKEN },
+      body: "{}",
+      signal: controller.signal,
+    }).catch(() => {});
+    clearTimeout(t);
+  } catch {}
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline && proc.exitCode === null && mongoProcess === proc) {
+    await sleep(200);
+  }
 }
 
 function stopEmbeddedMongo() {
@@ -969,14 +1083,27 @@ app.whenReady().then(async () => {
   app.setAppUserModelId(appUserModelId);
   watcherState.settings = loadBackgroundSettings();
   try { writeMainLog('app.whenReady - starting with settings', watcherState.settings); } catch {}
+
+  const shouldRunHeadless =
+    watcherState.settings?.consentGiven &&
+    watcherState.settings?.enabled &&
+    watcherState.settings?.keepRunningInTray;
+  const launchInBackground = isBackgroundLaunch() && shouldRunHeadless;
+
+  // Show the window right away: the UI shows "Starting…" until the backend answers.
+  if (!launchInBackground) {
+    createWindow();
+  }
+
   const backendOk = await ensureBackendRunning();
   try { writeMainLog('ensureBackendRunning result', { ok: backendOk }); } catch {}
-  if (!backendOk && !isBackgroundLaunch()) {
+  if (!backendOk && !launchInBackground) {
     dialog.showErrorBox(
-      "Backend Unavailable",
-      `Local backend could not be started on http://127.0.0.1:5001.\nCheck ${getBackendLogPath()} for details, then restart the app.`
+      "SmartShot couldn't start",
+      `The app's search service didn't start. Close SmartShot and open it again.\n\nIf this keeps happening, restart your computer. Details are in:\n${getBackendLogPath()}`
     );
   }
+
   try {
     app.setLoginItemSettings({
       openAtLogin: Boolean(
@@ -987,21 +1114,12 @@ app.whenReady().then(async () => {
       args: ["--background"],
     });
   } catch {}
-  const shouldRunHeadless =
-    watcherState.settings?.consentGiven &&
-    watcherState.settings?.enabled &&
-    watcherState.settings?.keepRunningInTray;
-  const launchInBackground = isBackgroundLaunch() && shouldRunHeadless;
-
-  if (!launchInBackground) {
-    createWindow();
-  }
   void startBackgroundWatchers(watcherState.settings);
 });
 
-app.on("before-quit", () => {
-  isQuitting = true;
-  stopBackgroundWatchers();
+let quitCleanupDone = false;
+
+function killBackendProcess() {
   if (backendSpawnedByApp && backendProcess) {
     try {
       backendProcess.kill();
@@ -1009,7 +1127,26 @@ app.on("before-quit", () => {
     backendProcess = null;
     backendSpawnedByApp = false;
   }
-  stopEmbeddedMongo();
+}
+
+app.on("before-quit", (event) => {
+  isQuitting = true;
+  stopBackgroundWatchers();
+  if (quitCleanupDone || !mongoProcess) {
+    killBackendProcess();
+    stopEmbeddedMongo();
+    return;
+  }
+  // Close the database cleanly first so it never needs recovery on next start.
+  event.preventDefault();
+  shutdownEmbeddedMongoGracefully()
+    .catch(() => {})
+    .finally(() => {
+      quitCleanupDone = true;
+      killBackendProcess();
+      stopEmbeddedMongo();
+      app.quit();
+    });
 });
 
 app.on("activate", () => {

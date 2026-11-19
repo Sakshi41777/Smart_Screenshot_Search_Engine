@@ -6,9 +6,10 @@ const crypto = require("crypto");
 const axios = require("axios");
 const IndexedFile = require("../models/IndexedFile");
 const { sendProgress } = require("./searchProgress");
-const { extractTextSafe } = require("../services/ocr");
+const { extractTextSafe, getOcrConcurrency } = require("../services/ocr");
 const os = require("os");
 const { dHash, hashSimilarity } = require("../services/phash");
+const { getAiConfig } = require("../services/aiSettings");
 const { requireDb } = require("../services/db");
 const {
   heuristicTagsForPath,
@@ -281,25 +282,156 @@ function getReadableContext(text = "", file = {}) {
   return raw;
 }
 
+// ---------- Answers without an AI key ----------
+// Turns OCR text into a short, readable answer instead of dumping raw text.
+const ASK_STOPWORDS = new Set(
+  "the a an and or of to in on for with is are was were be this that these those what which who whom how why when where does do did can could should would about from into your you me my it its as at by file screenshot image please tell give show find any all".split(" ")
+);
+
+function cleanOcrLines(text = "") {
+  const seen = new Set();
+  return String(text || "")
+    .replace(/\r/g, "")
+    .split(/\n+/)
+    .map((line) =>
+      line
+        .replace(/[«»©®™•·●▪■□◆◇►▶→←↑↓|\\]+/g, " ")
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/https?:\/\/\S+/g, " ")
+        .split(/\s+/)
+        .map((w) => w.replace(/^[*_~`>"'\[({]+|[*_~`"\])}]+$/g, ""))
+        .filter((w) => w && !/[#${}<>]|\(|\)|\[|\]|^[-–—=+*.~]+$|^\/|\.(?:jpg|png|bar)$/i.test(w))
+        .filter((w, i, arr) => !(w.length === 1 && /[a-z]/i.test(w) && i === 0 && arr.length > 1 && w !== "I" && w !== "A"))
+        .join(" ")
+        .replace(/\s{2,}/g, " ")
+        .trim()
+    )
+    .filter((line) => {
+      const letters = (line.match(/[A-Za-z]/g) || []).length;
+      if (line.length < 4 || letters < 3) return false;
+      if (letters / line.length < 0.5) return false;
+      const key = line.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function splitIntoSentences(lines = []) {
+  const out = [];
+  for (const line of lines) {
+    const parts = line.split(/(?<=[.!?])\s+(?=[A-Z0-9])/);
+    for (const p of parts) {
+      const t = p.trim();
+      if (t.length >= 4) out.push(t);
+    }
+  }
+  return out;
+}
+
+function pickTitle(lines = []) {
+  return lines.find((l) => l.length >= 4 && l.length <= 60 && /[A-Za-z]{3,}/.test(l)) || "";
+}
+
+function pickKeyLines(lines = [], limit = 4, skip = "") {
+  return lines
+    .filter((l) => l !== skip && l.length >= 20)
+    .slice(0, 12)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, limit)
+    .sort((a, b) => lines.indexOf(a) - lines.indexOf(b))
+    .map((l) => (l.length > 180 ? `${l.slice(0, 177).trim()}…` : l));
+}
+
+function bullets(items = []) {
+  return items.map((i) => `• ${i}`).join("\n");
+}
+
+function extractDatesAndNumbers(text = "") {
+  const raw = String(text || "");
+  const months = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec";
+  const datePatterns = [
+    /\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/g,
+    /\b\d{4}-\d{2}-\d{2}\b/g,
+    new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${months})[a-z]*\\.?,?\\s+\\d{4}\\b`, "gi"),
+    new RegExp(`\\b(?:${months})[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}\\b`, "gi"),
+  ];
+  const dates = new Set();
+  for (const re of datePatterns) for (const m of raw.match(re) || []) dates.add(m.trim());
+  const money = new Set(
+    (raw.match(/(?:₹|Rs\.?|INR|\$|USD|€|£)\s?\d[\d,]*(?:\.\d+)?/gi) || []).map((m) => m.replace(/\s+/g, " ").trim())
+  );
+  const percents = new Set(raw.match(/\b\d+(?:\.\d+)?\s?%/g) || []);
+  return { dates: [...dates].slice(0, 8), money: [...money].slice(0, 8), percents: [...percents].slice(0, 6) };
+}
+
 function makeLocalAskAnswer({ question, name, text }) {
   const file = { name };
-  const readableText = getReadableContext(text, file);
+  const readable = getReadableContext(text, file);
   const q = String(question || "").toLowerCase();
 
   if (looksLikeHtml(text, file) && /\b(red|color|colour)\b/i.test(q)) {
     const colors = findColorMentions(text);
-    if (!colors.length || !colors.some((c) => /^red$/i.test(c) || /^#f00/i.test(c) || /^#ff0000/i.test(c) || /rgb\(\s*255\s*,\s*0\s*,\s*0\s*\)/i.test(c))) {
-      return `I do not see a clear red color reference in ${name}. This file looks like saved HTML/embed code, so open the original page or inspect the CSS if you need the visual color location.`;
-    }
-    return `I found these color references in ${name}: ${colors.join(", ")}. Check the matching CSS rule or element in the HTML.`;
+    return colors.length
+      ? `Color references in ${name}: ${colors.join(", ")}.`
+      : `I don't see clear color references in ${name}.`;
   }
 
-  if (looksLikeOcrNoise(readableText)) {
-    return `I could not read enough reliable text from ${name} to answer normally. The extracted text looks noisy, so try Refresh Text or check that the AI provider is working.`;
+  const lines = cleanOcrLines(readable);
+  if (!lines.length || looksLikeOcrNoise(lines.join(" "))) {
+    return `I couldn't read enough clear text in ${name} to answer. Try "Refresh Text", or add an AI key in Settings so the AI can look at the image itself.`;
   }
-  const snippet = readableText.replace(/\s+/g, " ").slice(0, 700);
-  const prefix = question ? `For "${question}", ` : "";
-  return `${prefix}${name} appears to contain: ${snippet}${readableText.length > 700 ? "..." : ""}`;
+
+  const title = pickTitle(lines);
+  const keyLines = pickKeyLines(lines, 4, title);
+  const about = title ? `This looks like "${title}".` : `Here's what ${name} contains.`;
+
+  if (/(date|number|amount|price|total|cost|deadline|when|how much)/.test(q)) {
+    const { dates, money, percents } = extractDatesAndNumbers(readable);
+    const parts = [];
+    if (dates.length) parts.push(`Dates:\n${bullets(dates)}`);
+    if (money.length) parts.push(`Amounts:\n${bullets(money)}`);
+    if (percents.length) parts.push(`Percentages:\n${bullets(percents)}`);
+    return parts.length ? parts.join("\n\n") : `I didn't find any clear dates or amounts in ${name}.`;
+  }
+
+  if (/(action|todo|to-do|to do|task|next step|what should i do)/.test(q)) {
+    const actions = lines
+      .filter((l) =>
+        /\b(todo|to do|must|should|need to|needs to|required|submit|send|pay|complete|finish|due|deadline|call|email|review|fix|update|write|add|remove|check|schedule|book|register)\b/i.test(l)
+      )
+      .slice(0, 6);
+    return actions.length
+      ? `Possible action items:\n${bullets(actions)}`
+      : `I didn't find clear action items in ${name}. ${about}`;
+  }
+
+  if (/(key point|main point|highlight|important)/.test(q)) {
+    return `${about}\n\nKey points:\n${bullets(keyLines.length ? keyLines : lines.slice(0, 4))}`;
+  }
+
+  if (/(simple|easy|explain|eli5|plain)/.test(q)) {
+    const gist = (keyLines.length ? keyLines : lines).slice(0, 2).join(" ");
+    return `In short: ${about} ${gist}`;
+  }
+
+  if (!q || /(summar|overview|describe|what is this|what's this|what is it|tell me about this|about this)/.test(q)) {
+    return `${about}\n\nMain points:\n${bullets(keyLines.length ? keyLines : lines.slice(0, 4))}`;
+  }
+
+  // Any other question: show the lines that mention the question's words.
+  const words = q.split(/[^a-z0-9@.]+/).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w));
+  const sentences = splitIntoSentences(lines);
+  const hits = words.length
+    ? sentences
+        .map((s) => ({ s, n: words.filter((w) => s.toLowerCase().includes(w)).length }))
+        .filter((x) => x.n > 0)
+        .sort((x, y) => y.n - x.n)
+        .slice(0, 4)
+        .map((x) => (x.s.length > 200 ? `${x.s.slice(0, 197)}…` : x.s))
+    : [];
+  if (hits.length) return `Here's what ${name} says about that:\n${bullets(hits)}`;
+  return `I couldn't find that in the text of ${name}. ${about}\n\nMain points:\n${bullets(keyLines.length ? keyLines : lines.slice(0, 3))}`;
 }
 
 function getImageDataUrl(filePath = "") {
@@ -368,18 +500,19 @@ function buildAskMessages({ question, file, includeImage = false }) {
 }
 
 async function askWithOpenAi({ question, file }) {
-  if (!OPENAI_API_KEY) return "";
+  const cfg = getAiConfig();
+  if (!cfg.openaiKey) return "";
   const response = await axios.post(
-    `${OPENAI_BASE_URL}/chat/completions`,
+    `${cfg.openaiBase}/chat/completions`,
     {
-      model: LLM_MODEL || "gpt-4o-mini",
+      model: cfg.model || "gpt-4o-mini",
       temperature: 0.2,
       max_tokens: 500,
       messages: buildAskMessages({ question, file, includeImage: true }),
     },
     {
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${cfg.openaiKey}`,
         "Content-Type": "application/json",
       },
       timeout: AI_QUERY_TIMEOUT_MS,
@@ -389,11 +522,12 @@ async function askWithOpenAi({ question, file }) {
 }
 
 async function askWithGemini({ question, file }) {
-  if (!GEMINI_API_KEY) return "";
+  const cfg = getAiConfig();
+  if (!cfg.geminiKey) return "";
   const messages = buildAskMessages({ question, file });
   const prompt = messages.map((m) => `${m.role.toUpperCase()}:\n${m.content}`).join("\n\n");
   const response = await axios.post(
-    `${GEMINI_BASE_URL}/models/${encodeURIComponent(LLM_MODEL || "gemini-1.5-flash")}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+    `${cfg.geminiBase}/models/${encodeURIComponent(cfg.model || "gemini-1.5-flash")}:generateContent?key=${encodeURIComponent(cfg.geminiKey)}`,
     {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
@@ -420,7 +554,7 @@ function summarizeProviderError(err) {
 
 async function askWithConfiguredProvider({ question, file }) {
   try {
-    if (LLM_PROVIDER === "gemini") {
+    if (getAiConfig().provider === "gemini") {
       return { answer: await askWithGemini({ question, file }), error: "" };
     }
     return { answer: await askWithOpenAi({ question, file }), error: "" };
@@ -512,21 +646,44 @@ async function runIndexing(folders) {
     const total = files.length;
     sendProgress(`0 / ${total}`, "working");
 
+    // Newest files first, so recent screenshots are searchable soonest.
+    const ordered = files
+      .map((f) => {
+        let t = 0;
+        try {
+          t = fs.statSync(f).mtimeMs;
+        } catch {}
+        return [f, t];
+      })
+      .sort((a, b) => b[1] - a[1])
+      .map((x) => x[0]);
+
+    // Read several files at the same time (one per OCR worker).
     let done = 0;
-    for (const filePath of files) {
-      if (indexState.cancelRequested) {
-        sendProgress("Setup stopped.", "canceled");
-        return;
-      }
-      try {
-        await upsertIndexedFile(filePath);
-      } catch (err) {
-        console.warn("[INDEX SKIPPED]", filePath, err?.message || err);
-      }
-      done += 1;
-      if (done === total || done % 3 === 0) {
-        sendProgress(`${done} / ${total}`, "working");
-      }
+    let nextIndex = 0;
+    const lanes = Math.max(1, Math.min(getOcrConcurrency(), ordered.length || 1));
+    await Promise.all(
+      Array.from({ length: lanes }, async () => {
+        while (!indexState.cancelRequested) {
+          const i = nextIndex;
+          nextIndex += 1;
+          if (i >= ordered.length) return;
+          try {
+            await upsertIndexedFile(ordered[i]);
+          } catch (err) {
+            console.warn("[INDEX SKIPPED]", ordered[i], err?.message || err);
+          }
+          done += 1;
+          if (done === total || done % 3 === 0) {
+            sendProgress(`${done} / ${total}`, "working");
+          }
+        }
+      })
+    );
+
+    if (indexState.cancelRequested) {
+      sendProgress("Setup stopped.", "canceled");
+      return;
     }
 
     sendProgress(`Indexing complete (${done} files)`, "done");
@@ -594,7 +751,7 @@ router.post("/ask", async (req, res) => {
   res.json({
     ok: true,
     answer: aiAnswer || makeLocalAskAnswer({ question, name, text }),
-    source: aiAnswer ? LLM_PROVIDER : "local",
+    source: aiAnswer ? getAiConfig().provider : "local",
     fallbackReason: aiAnswer ? "" : aiResult.error || "AI provider unavailable",
   });
 });

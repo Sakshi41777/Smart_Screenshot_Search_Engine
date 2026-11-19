@@ -60,3 +60,11 @@ html, body, #root {
 @keyframes app-spin {
   to { transform: rotate(360deg); }
 }
+
+.app-boot-note {
+  display: block;
+  max-width: 360px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}

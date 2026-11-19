@@ -1,4 +1,5 @@
 const Tesseract = require("tesseract.js");
+const os = require("os");
 const fs = require("fs");
 const path = require("path");
 // pdf-parse v1 (works on Electron's bundled Node). Require the lib file directly:
@@ -132,17 +133,81 @@ function textLooksUseful(text = "") {
   return letters >= 6;
 }
 
+/* ================= OCR WORKER POOL =================
+   Starting Tesseract (WASM + English data) is slow, so a few workers are
+   started once and reused for every image instead of one per OCR pass.
+   Several files can be read at the same time (one per worker). */
+const OCR_POOL_SIZE = Math.max(
+  1,
+  Math.min(Number(process.env.OCR_WORKERS || 0) || (os.cpus()?.length || 2) - 1, 3)
+);
+let ocrWorkersCreated = 0;
+const idleOcrWorkers = [];
+const ocrWaiters = [];
+
+async function createOcrWorker() {
+  const worker = await Tesseract.createWorker("eng", 1, { logger: () => {} });
+  worker.__psm = null;
+  return worker;
+}
+
+async function acquireOcrWorker() {
+  if (idleOcrWorkers.length) return idleOcrWorkers.pop();
+  if (ocrWorkersCreated < OCR_POOL_SIZE) {
+    ocrWorkersCreated += 1;
+    try {
+      return await createOcrWorker();
+    } catch (err) {
+      ocrWorkersCreated -= 1;
+      throw err;
+    }
+  }
+  return new Promise((resolve) => ocrWaiters.push(resolve));
+}
+
+function releaseOcrWorker(worker) {
+  const next = ocrWaiters.shift();
+  if (next) next(worker);
+  else idleOcrWorkers.push(worker);
+}
+
+function discardOcrWorker(worker) {
+  // A stuck worker (timeout) is thrown away and replaced on demand.
+  ocrWorkersCreated -= 1;
+  Promise.resolve()
+    .then(() => worker.terminate())
+    .catch(() => {});
+  const next = ocrWaiters.shift();
+  if (next) next(acquireOcrWorker());
+}
+
 async function recognizeWithPsm(inputBuffer, psm = "6") {
-  const result = await withTimeout(
-    Tesseract.recognize(inputBuffer, "eng", {
-      logger: () => {},
-      tessedit_pageseg_mode: String(psm),
-      preserve_interword_spaces: "1",
-      tessedit_char_blacklist: "|`~^",
-    }),
-    OCR_TIMEOUT_MS
-  );
-  return (result?.data?.text || "").slice(0, MAX_TEXT_LEN);
+  const worker = await acquireOcrWorker();
+  let done = false;
+  try {
+    if (worker.__psm !== String(psm)) {
+      await worker.setParameters({
+        tessedit_pageseg_mode: String(psm),
+        preserve_interword_spaces: "1",
+        tessedit_char_blacklist: "|`~^",
+      });
+      worker.__psm = String(psm);
+    }
+    const result = await withTimeout(worker.recognize(inputBuffer), OCR_TIMEOUT_MS);
+    done = true;
+    releaseOcrWorker(worker);
+    return (result?.data?.text || "").slice(0, MAX_TEXT_LEN);
+  } catch (err) {
+    if (!done) {
+      if (String(err?.message || "") === "OCR timeout") discardOcrWorker(worker);
+      else releaseOcrWorker(worker);
+    }
+    throw err;
+  }
+}
+
+function getOcrConcurrency() {
+  return OCR_POOL_SIZE;
 }
 
 async function askVisionWithProvider(imageBuffer) {
@@ -413,12 +478,14 @@ async function extractTextSafe(filePath, options = {}) {
     if (!imageBuffer || imageBuffer.length < 50) return "";
 
     let ocrInput = imageBuffer;
-    let ocrHighContrastInput = null;
+    let isCameraPhoto = false;
     try {
       // Preprocess screenshot-like images to improve text readability for OCR.
       // Upscaling helps tiny UI fonts become OCR-readable.
       const meta = await sharp(imageBuffer).metadata();
       if (!isReadableImageMeta(meta)) return "";
+      // Camera photos (JPEG with EXIF) rarely contain text: one OCR pass is enough.
+      isCameraPhoto = meta.format === "jpeg" && Boolean(meta.exif) && Number(meta.width || 0) >= 1200;
       if (isTooTinyForOcr(meta)) return "";
 
       const baseWidth = Number(meta?.width || 0);
@@ -454,13 +521,6 @@ async function extractTextSafe(filePath, options = {}) {
         .linear(1.15, -10)
         .png({ density: 72 })
         .toBuffer();
-
-      // Additional high-contrast variant improves OCR for dim screenshots/photos.
-      ocrHighContrastInput = await sharp(ocrInput)
-        .threshold(155)
-        .median(1)
-        .png({ density: 72 })
-        .toBuffer();
     } catch {
       // If sharp cannot decode/process image, do not send raw buffer to OCR.
       // Raw malformed images can crash OCR workers.
@@ -475,14 +535,20 @@ async function extractTextSafe(filePath, options = {}) {
       bestText = pass1 || "";
     } catch {}
 
-    try {
-      const pass2 = await recognizeWithPsm(ocrInput, "11"); // sparse text
-      if ((pass2 || "").length > bestText.length) bestText = pass2;
-      if (textLooksUseful(pass2)) return pass2;
-    } catch {}
-
-    if (ocrHighContrastInput) {
+    if (!isCameraPhoto) {
       try {
+        const pass2 = await recognizeWithPsm(ocrInput, "11"); // sparse text
+        if ((pass2 || "").length > bestText.length) bestText = pass2;
+        if (textLooksUseful(pass2)) return pass2;
+      } catch {}
+
+      // High-contrast variant for dim screenshots, built only when still needed.
+      try {
+        const ocrHighContrastInput = await sharp(ocrInput)
+          .threshold(155)
+          .median(1)
+          .png({ density: 72 })
+          .toBuffer();
         const pass3 = await recognizeWithPsm(ocrHighContrastInput, "6");
         if ((pass3 || "").length > bestText.length) bestText = pass3;
         if (textLooksUseful(pass3)) return pass3;
@@ -511,5 +577,6 @@ async function extractTextSafe(filePath, options = {}) {
 
 module.exports = {
   extractTextSafe, // ✅ explicit safe name
+  getOcrConcurrency,
   describeImageSemanticSafe,
 };

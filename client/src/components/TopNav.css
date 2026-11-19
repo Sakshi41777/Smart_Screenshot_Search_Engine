@@ -750,3 +750,56 @@ section.pf-card .btn-outline {
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ---------- Settings: AI answers ---------- */
+.pf-ai-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px 14px;
+  margin-top: 14px;
+}
+
+.pf-ai-grid label {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.pf-ai-grid .pf-ai-key {
+  grid-column: 1 / -1;
+}
+
+.pf-ai-grid select,
+.pf-ai-grid input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.pf-ai-grid select:focus,
+.pf-ai-grid input:focus {
+  outline: none;
+  border-color: var(--brown);
+  box-shadow: 0 0 0 4px rgba(145, 100, 62, 0.14);
+}
+
+.pf-ai-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.pf-ai-status {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}

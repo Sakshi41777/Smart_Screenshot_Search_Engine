@@ -1236,7 +1236,7 @@ export default function SearchPage({ user, onSignOut }) {
       const answer = String(res?.data?.answer || "").trim();
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", text: answer || "No response received." },
+        { role: "assistant", text: answer || "No response received.", source: res?.data?.source || "" },
       ]);
     } catch (err) {
       const errText =
@@ -1270,7 +1270,7 @@ export default function SearchPage({ user, onSignOut }) {
       const answer = String(res?.data?.answer || "").trim();
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", text: answer || "No response received." },
+        { role: "assistant", text: answer || "No response received.", source: res?.data?.source || "" },
       ]);
       return true;
     } catch (err) {
@@ -2627,6 +2627,11 @@ export default function SearchPage({ user, onSignOut }) {
                       className={`preview-chat-msg ${m.role === "assistant" ? "is-assistant" : "is-user"}`}
                     >
                       {m.text}
+                      {m.role === "assistant" && m.source === "local" ? (
+                        <span className="preview-chat-note">
+                          Answered from the text found in this file.
+                        </span>
+                      ) : null}
                     </div>
                   ))
                 ) : (

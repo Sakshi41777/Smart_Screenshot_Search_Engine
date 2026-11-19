@@ -52,11 +52,17 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [startError, setStartError] = useState("");
+  const [slowStart, setSlowStart] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSlowStart(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Get (or create) the built-in local profile and use it.
   const openLocalProfile = useCallback(async () => {
     let lastErr = null;
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
       try {
         const res = await api.post("/api/auth/local");
         const token = res?.data?.token;
@@ -70,7 +76,7 @@ export default function App() {
       } catch (err) {
         lastErr = err;
       }
-      await sleep(800); // backend may still be starting
+      await sleep(1000); // database may still be starting or repairing
     }
     console.error("Local profile unavailable", lastErr);
     setStartError("The app couldn't start its local database. Close the app and open it again.");
@@ -114,7 +120,14 @@ export default function App() {
     return (
       <div className="app-boot" role="status">
         <span className="app-boot-spinner" aria-hidden="true" />
-        Starting…
+        <span>
+          Starting SmartShot…
+          {slowStart ? (
+            <span className="app-boot-note">
+              The first start after installing can take a minute while Windows checks the app.
+            </span>
+          ) : null}
+        </span>
       </div>
     );
   }
