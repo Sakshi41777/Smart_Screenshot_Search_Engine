@@ -86,3 +86,6 @@ client/cleanup_backup_*/
 Smart_Screenshot_Search_Engine-*/
 # Downloaded at build time by scripts/fetch-mongod.js
 vendor/
+
+# Google OAuth desktop client for the installer (create locally, never commit)
+electron/google-oauth.json

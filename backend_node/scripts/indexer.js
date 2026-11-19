@@ -19,7 +19,9 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 
 const sharp = require("sharp");
-const pdf = require("pdf-parse");
+// pdf-parse v1 (works on Electron's bundled Node). Require the lib file directly:
+// the package index runs a self-test that reads a sample PDF when required this way.
+const pdf = require("pdf-parse/lib/pdf-parse.js");
 const Tesseract = require("tesseract.js");
 
 const yargs = require("yargs/yargs");

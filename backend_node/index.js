@@ -17,6 +17,8 @@ process.on("unhandledRejection", (reason) => {
 const app = express();
 
 const PORT = Number(process.env.PORT || 5001);
+// Only this computer can reach the backend (it serves the user's files).
+const HOST = process.env.HOST || "127.0.0.1";
 const MONGO_URI = process.env.MONGO_URI || "";
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "";
 const ALLOW_ANY_ORIGIN =
@@ -96,8 +98,8 @@ async function start() {
 
   startMaintenanceScheduler({ logger: console });
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
   });
 
   server.on("error", (err) => {

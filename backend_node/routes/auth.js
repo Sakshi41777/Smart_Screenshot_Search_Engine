@@ -448,13 +448,52 @@ router.get("/verify-email", async (req, res) => {
   }
 });
 
+/**
+ * Local profile (no account needed)
+ * - The desktop app works without signing in: this returns a token for one
+ *   built-in profile stored in the local database, so Saved and History work.
+ * - Signing in with email or Google later switches to that account instead.
+ */
+const LOCAL_PROFILE_EMAIL = "local-profile@smartshot.local";
+
+router.post("/local", async (_req, res) => {
+  try {
+    let user = await User.findOne({ email: LOCAL_PROFILE_EMAIL });
+    if (!user) {
+      user = await User.create({
+        name: "Local profile",
+        email: LOCAL_PROFILE_EMAIL,
+        emailVerified: true,
+      });
+    }
+    const token = createToken({ id: user._id, email: user.email, provider: "local-profile", guest: false });
+    return res.json({
+      ok: true,
+      token,
+      user: { id: user._id, name: user.name, email: user.email, local: true },
+    });
+  } catch (err) {
+    console.error("Local profile error:", err);
+    return res.status(500).json({ ok: false, message: "Could not open the local profile." });
+  }
+});
+
+// Lets the sign-in screens hide "Continue with Google" when this build has no Google client.
+router.get("/google/status", (_req, res) => {
+  res.json({ ok: true, enabled: Boolean(GOOGLE_CLIENT_ID) });
+});
+
 router.post("/google/desktop/start", async (_req, res) => {
   try {
     cleanupDesktopOauthSessions();
     if (!GOOGLE_CLIENT_ID) {
       return res
         .status(500)
-        .json({ ok: false, message: "Missing GOOGLE_CLIENT_ID" });
+        .json({
+          ok: false,
+          message:
+            "Google sign-in isn't set up in this version. Sign in with email, or continue as a guest.",
+        });
     }
 
     const sessionId = randomBase64Url(24);

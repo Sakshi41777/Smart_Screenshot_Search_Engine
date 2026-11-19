@@ -4,30 +4,47 @@ import axios from "axios";
 // Desktop backend fallback used before Electron preload finishes.
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:5001";
 
-// Log initial state for debugging
-if (typeof window !== "undefined") {
-  console.log("[API] window.BACKEND_BASE_URL:", window.BACKEND_BASE_URL);
-  console.log("[API] window.electronAPI:", !!window.electronAPI);
-}
-
-// Get the backend URL - prefer window.BACKEND_BASE_URL exposed via contextBridge (preload)
 function getBackendUrl() {
   if (typeof window !== "undefined" && window.BACKEND_BASE_URL) {
-    console.log("[API] Using window.BACKEND_BASE_URL:", window.BACKEND_BASE_URL);
     return window.BACKEND_BASE_URL;
   }
-  console.log("[API] Using DEFAULT_BACKEND_URL:", DEFAULT_BACKEND_URL);
   return DEFAULT_BACKEND_URL;
 }
 
-// Create axios instance immediately with the correct backend URL
-const baseURL = getBackendUrl();
-console.log("[API] Creating axios with baseURL:", baseURL);
-
 const instance = axios.create({
-  baseURL: baseURL,
+  baseURL: getBackendUrl(),
   timeout: 20000,
 });
 
-export default instance;
+// Send the signed-in user's token with every request. Without this, every
+// account route (profile, saved items, history) answered 401 "not signed in".
+instance.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem("APP_TOKEN");
+    if (token && !config.headers?.Authorization) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {}
+  return config;
+});
 
+// A token the backend rejects (expired, or from an older install) signs the
+// user out once, instead of every page failing quietly.
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = error?.response?.status;
+      const url = String(error?.config?.url || "");
+      const hadToken = Boolean(error?.config?.headers?.Authorization);
+      const isAuthRoute = url.includes("/api/auth/");
+      if (status === 401 && hadToken && !isAuthRoute) {
+        window.dispatchEvent(new CustomEvent("app:session-expired"));
+      }
+    } catch {}
+    return Promise.reject(error);
+  }
+);
+
+export default instance;

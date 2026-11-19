@@ -1,247 +1,111 @@
 # Smart Screenshot Search Engine
 
-A desktop app for finding screenshots, images, and documents quickly. It can index folders, read text from images with OCR, search by keywords, find visual matches, detect duplicates, and keep useful search history.
+A Windows desktop app that finds any screenshot, image or document on your PC by **what's inside it**. Pick a folder (or your whole Desktop / Documents), and the app reads the text in every image with OCR, so you can search for a word you remember seeing instead of a file name.
 
-## Quick Start
+Everything runs **locally**: your files and their text never leave your computer.
 
-Run these commands from the project root.
+![Smart Screenshot Search Engine](docs/app-screenshot.png)
+
+## Download
+
+**[⬇ Download the latest Windows installer](https://github.com/Sakshi41777/Smart_Screenshot_Search_Engine/releases/latest)**
+
+1. Download `Smart Screenshot Search Engine Setup x.y.z.exe` from the latest release.
+2. Run it. Windows may show **"Windows protected your PC"** because the app isn't code-signed (a paid certificate). Click **More info → Run anyway**.
+3. Choose **Only for me**, install, and open the app.
+
+No Node.js, MongoDB or Python setup needed. Everything the app needs is bundled.
+
+**Requirements:** Windows 10 or 11 (64-bit), about 500 MB free disk space.
+
+## Features
+
+- **Search inside images.** OCR (Tesseract) extracts text from screenshots and photos, and text is read from PDFs and code/text files.
+- **Whole-folder indexing.** Choose any folder, your Desktop or a whole drive: every subfolder is scanned, and junk like `node_modules`, `.git`, `AppData` and system folders is skipped automatically.
+- **Search by image.** Upload or crop an image to find the same or similar screenshots (perceptual hashing) and screenshots containing the same text.
+- **Duplicate detection** for identical files.
+- **Filters** by file type, extension, size, date and whether text was found.
+- **Saved results and grouped search history** per account. Guest mode works too.
+- **Optional background indexing.** With your permission, new and changed files in watched folders are indexed automatically.
+- **Optional AI:** ask questions about a selected file, or get AI-assisted search, using your own OpenAI or Gemini key.
+
+## How it works
+
+```text
+Electron app
+├── React UI (client/)                  search, filters, previews, history
+├── Node.js + Express API (backend_node/)  started by the app on 127.0.0.1:5001
+│   ├── Tesseract.js OCR, pdf-parse     text extraction
+│   ├── sharp                           thumbnails + perceptual image hashes
+│   └── MongoDB (bundled)               index, accounts, history; private port 27027
+└── Optional: python/vision_service.py  PyTorch BLIP captions + CLIP embeddings
+```
+
+The installer ships its own MongoDB server (`smartshot-mongod.exe`). It starts with the app on a private port, stores data in `%APPDATA%\smart-screenshot-desktop\mongo-data`, and stops when the app quits. It never interferes with a MongoDB you may already have installed.
+
+## Build from source
+
+**Prerequisites:** Windows 10/11, [Node.js 20+](https://nodejs.org) and Git.
 
 ```powershell
+git clone https://github.com/Sakshi41777/Smart_Screenshot_Search_Engine.git
+cd Smart_Screenshot_Search_Engine
 npm install
-cd client; npm install; cd ..
-cd backend_node; npm install; cd ..
 ```
 
-Create or update `backend_node/.env`:
-
-```env
-PORT=5001
-MONGO_URI=mongodb://localhost:27017/smart_screenshot_db
-CLIENT_ORIGIN=
-JWT_SECRET=replace_with_secure_secret
-TOKEN_EXPIRES_IN=7d
-EMAIL_VERIFICATION_REQUIRED=false
-```
-
-Start MongoDB locally, then run the desktop app:
-
-```powershell
-npm run dev:desktop
-```
-
-The app will build the React renderer, start the backend, wait for the backend health check, and open the Electron window.
-
-## Requirements
-
-- Node.js 18 or newer
-- npm
-- MongoDB running locally at `mongodb://localhost:27017`
-- Windows is the main tested desktop target
-
-## Useful Commands
-
-Install everything:
-
-```powershell
-npm install
-cd client; npm install; cd ..
-cd backend_node; npm install; cd ..
-```
-
-Run the desktop app in development:
-
-```powershell
-npm run dev:desktop
-```
-
-Run the production desktop app:
-
-```powershell
-npm start
-```
-
-Run only the backend:
-
-```powershell
-cd backend_node
-npm run dev
-```
-
-Build the Windows installer:
+**Build the Windows installer:**
 
 ```powershell
 npm run dist
 ```
 
-The installer output is created in `dist/`.
+This installs the client and backend dependencies, builds the React UI, downloads MongoDB once (into `vendor/`, which is git-ignored), and creates the installer in `dist/`.
 
-## What You Can Do
+> **Build tips.** Turn on Windows **Developer Mode** (Settings → System → Advanced). If your project folder is inside OneDrive and the build fails with "file is being used by another process", send the output elsewhere:
+> `npx electron-builder --win nsis --publish never "--config.directories.output=$env:USERPROFILE\smartshot-dist"`
 
-- Index folders that contain screenshots, images, PDFs, and documents
-- Search indexed files by text
-- Use OCR text from images and screenshots
-- Filter by file type, extension, size, date, and OCR availability
-- Search using an image from your gallery or camera capture
-- Crop an image before visual search
-- Detect duplicate files
-- Save important results
-- Review grouped search history
-- Ask AI questions about a selected preview when an LLM provider is configured
+**Run in development mode:**
 
-## Project Structure
-
-```text
-Smart_Screenshot_Search_Engine/
-|-- backend_node/      Node API, MongoDB models, routes, and services
-|-- client/            React renderer used inside Electron
-|-- electron/          Electron main process, preload, and app resources
-|-- dist/              Generated installer/build output
-|-- package.json       Root scripts for desktop orchestration
-|-- requirements.txt   Python-related dependencies, if needed locally
-`-- README.md
-```
-
-## Environment Setup
-
-The backend reads settings from `backend_node/.env`.
-
-For local development, this is enough:
-
-```env
-PORT=5001
-MONGO_URI=mongodb://localhost:27017/smart_screenshot_db
-CLIENT_ORIGIN=
-JWT_SECRET=replace_with_secure_secret
-TOKEN_EXPIRES_IN=7d
-EMAIL_VERIFICATION_REQUIRED=false
-```
-
-Keep `EMAIL_VERIFICATION_REQUIRED=false` if you want local register/login to work without configuring email.
-
-## Optional Email Setup
-
-Use Resend:
-
-```env
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM=noreply@yourdomain.com
-RESEND_BASE_URL=https://api.resend.com
-SERVER_BASE_URL=http://127.0.0.1:5001
-```
-
-Or use SMTP:
-
-```env
-EMAIL_PROVIDER=smtp
-SMTP_USER=your_sender@gmail.com
-SMTP_PASS=your_app_password
-SMTP_FROM=your_sender@gmail.com
-SERVER_BASE_URL=http://127.0.0.1:5001
-```
-
-## Optional Google Login
-
-Add these values to `backend_node/.env`:
-
-```env
-GOOGLE_CLIENT_ID=your_google_oauth_client_id
-GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
-GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:5001/api/auth/google/desktop/callback
-GOOGLE_OAUTH_SCOPES=openid email profile
-```
-
-In Google Cloud Console, add this redirect URI exactly:
-
-```text
-http://127.0.0.1:5001/api/auth/google/desktop/callback
-```
-
-## Optional AI Features
-
-Choose one LLM provider if you want preview chat or AI-assisted search.
-
-OpenAI or OpenAI-compatible provider:
-
-```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your_key
-LLM_API_KEY=your_key
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-```
-
-Gemini:
-
-```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_key
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-LLM_MODEL=gemini-1.5-flash
-```
-
-AI query assist:
-
-```env
-AI_QUERY_ASSIST=true
-AI_QUERY_TIMEOUT_MS=12000
-AI_QUERY_MIN_CHARS=4
-```
-
-AI semantic search:
-
-```env
-AI_SEMANTIC_SEARCH=true
-AI_SEMANTIC_MODEL=text-embedding-3-small
-AI_SEMANTIC_MAX_CANDIDATES=220
-AI_SEMANTIC_TIMEOUT_MS=12000
-```
-
-## Maintenance
-
-Preview cleanup without deleting anything:
+Development uses your own MongoDB. Copy `backend_node/.env.example` to `backend_node/.env` and set `MONGO_URI` (a local MongoDB or a MongoDB Atlas connection string), then:
 
 ```powershell
-cd backend_node
-npm run maintenance:dry
+cd client; npm install; cd ..
+cd backend_node; npm install; cd ..
+npm run dev:desktop
 ```
 
-Apply cleanup:
+## Optional configuration
 
-```powershell
-cd backend_node
-npm run maintenance:apply
-```
+These settings go in `backend_node/.env` for development. See `backend_node/.env.example` for the full list.
 
-To enable automatic cleanup, add this to `backend_node/.env` and restart the backend:
+| Feature | Settings |
+|---|---|
+| AI questions / AI search (OpenAI) | `LLM_PROVIDER=openai`, `OPENAI_API_KEY`, `LLM_MODEL` |
+| AI questions / AI search (Gemini) | `LLM_PROVIDER=gemini`, `GEMINI_API_KEY`, `LLM_MODEL` |
+| Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, redirect URI `http://127.0.0.1:5001/api/auth/google/desktop/callback` |
+| Email verification | `EMAIL_VERIFICATION_REQUIRED=true` plus Resend (`RESEND_API_KEY`) or SMTP (`SMTP_USER`, `SMTP_PASS`) |
+| Local vision service (captions + CLIP) | `pip install -r requirements.txt`, then run `python python/vision_service.py` (port 5055) |
+| Automatic cleanup | `CLEANUP_ENABLED=true`, `CLEANUP_DRY_RUN=false` and the `CLEANUP_*_DAYS` values |
 
-```env
-CLEANUP_ENABLED=true
-CLEANUP_DRY_RUN=false
-CLEANUP_INTERVAL_HOURS=24
-CLEANUP_UPLOADS_DAYS=30
-CLEANUP_THUMBS_DAYS=14
-CLEANUP_HISTORY_DAYS=30
+Never commit your `.env` file. It's git-ignored and is never included in the installer.
+
+## Project structure
+
+```text
+├── backend_node/   Express API: routes, MongoDB models, OCR / hashing services
+├── client/         React UI rendered inside Electron
+├── electron/       Main process (starts MongoDB + backend), preload, installer hook
+├── python/         Optional PyTorch vision service (BLIP + CLIP)
+├── scripts/        Build helpers (fetch-mongod.js downloads MongoDB for the installer)
+└── package.json    Desktop scripts and electron-builder config
 ```
 
 ## Troubleshooting
 
-Check backend health:
+- **"Backend Unavailable" on start:** check `%APPDATA%\smart-screenshot-desktop\backend.log` and `main.log`.
+- **OneDrive folders:** files marked "online-only" must be downloaded before they can be indexed (right-click → *Always keep on this device*).
+- **Backend health check:** open `http://127.0.0.1:5001/health` while the app is running.
 
-```text
-http://localhost:5001/health
-```
+## License
 
-Common things to check:
-
-- MongoDB is running before starting the app.
-- `backend_node/.env` has the correct `MONGO_URI`.
-- Port `5001` is free.
-- LLM keys and model names are correct if preview chat fails.
-- OneDrive folders may need files to be available offline before indexing.
-
-## Notes
-
-- Do not commit `.env` files or real API keys.
-- `npm run dev:desktop` is the recommended command for normal development.
-- `npm start` also builds the client and starts the backend plus Electron in production mode.
+MIT

@@ -1,0 +1,73 @@
+.infotip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.infotip-btn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #c9a888;
+  background: #f3e6d8;
+  color: #6b4a2e;
+  font: italic 700 11px/16px Georgia, "Times New Roman", serif;
+  cursor: help;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.infotip-warn .infotip-btn {
+  font-style: normal;
+  font-family: "Segoe UI", Arial, sans-serif;
+  border-color: #d9a15a;
+  background: #fbebd2;
+  color: #8a4b0f;
+}
+
+.infotip-btn:hover,
+.infotip-btn:focus-visible {
+  background: #ead6c0;
+  border-color: #a77b55;
+  outline: none;
+}
+
+.infotip-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(167, 123, 85, 0.3);
+}
+
+.infotip-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 1000;
+  width: max-content;
+  max-width: 260px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #3b2b1e;
+  color: #fbf5ee;
+  font-size: 12.5px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(59, 43, 30, 0.22);
+}
+
+.infotip-pop-left { left: -6px; }
+.infotip-pop-right { right: -6px; }
+
+.infotip-pop::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  background: #3b2b1e;
+  transform: rotate(45deg);
+}
+
+.infotip-pop-left::before { left: 10px; }
+.infotip-pop-right::before { right: 10px; }

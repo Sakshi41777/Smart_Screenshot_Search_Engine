@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import TopNav from "../components/TopNav";
+import Icon from "../components/Icon";
+import { setDisplayName, useDisplayName } from "../displayName";
 import "./Profile.css";
 
 function readSavedUser() {
@@ -21,6 +23,27 @@ export default function Profile({ user, onSignOut }) {
     window.electronAPI?.getBackgroundIndexSettings &&
       window.electronAPI?.setBackgroundIndexSettings
   );
+  const currentName = useDisplayName();
+  const [nameDraft, setNameDraft] = useState(currentName);
+  const [nameNotice, setNameNotice] = useState("");
+  useEffect(() => {
+    setNameDraft(currentName);
+  }, [currentName]);
+
+  function saveName(e) {
+    e?.preventDefault?.();
+    const saved = setDisplayName(nameDraft);
+    setNameNotice(saved ? `Saved. SmartShot will call you ${saved}.` : "Name removed.");
+    setTimeout(() => setNameNotice(""), 2500);
+  }
+
+  function removeName() {
+    setDisplayName("");
+    setNameDraft("");
+    setNameNotice("Name removed.");
+    setTimeout(() => setNameNotice(""), 2500);
+  }
+
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -84,11 +107,8 @@ export default function Profile({ user, onSignOut }) {
         console.warn("Failed to fetch /api/user/me — falling back to saved user or prop", err);
         if (mounted) setProfile(savedUser || user || null);
         // store non-blocking message
-        if (err?.response?.status === 401) {
-          setError("Session expired. Please sign in again.");
-        } else {
-          setError(""); // don't show network hiccup as a prominent error
-        }
+        // 401s are handled app-wide (falls back to the local profile).
+        setError("");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -253,145 +273,58 @@ export default function Profile({ user, onSignOut }) {
     }
   }
 
-  // If completely unauthenticated — show sign-in CTA
-  if (!user && !isGuest) {
-    return (
-      <div className="sp-root">
-        <TopNav user={null} onSignOut={handleSignOutLocal} />
-        <div style={{ marginTop: 12 }} />
-        <div className="sp-body" style={{ gridTemplateColumns: "1fr" }}>
-          <main style={{ gridColumn: "1 / -1" }}>
-            <div className="sp-card">
-              <h2>Profile</h2>
-              <div style={{ padding: 12 }}>
-                <p>You are not signed in.</p>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn-primary" onClick={() => navigate("/signin")}>Sign in / Register</button>
-                </div>
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="sp-root">
       <TopNav user={user} onSignOut={handleSignOutLocal} />
 
-      <div style={{ marginTop: 12 }} />
+      <main className="pg-main pf-main">
+        <header className="pg-head">
+          <div>
+            <h1>Settings</h1>
+            <p>Personalise SmartShot, keep your index up to date, or start fresh.</p>
+          </div>
+        </header>
 
-      <div className="sp-body" style={{ gridTemplateColumns: "1fr" }}>
-        <main style={{ gridColumn: "1 / -1" }}>
-          <div className="sp-card">
-            <h2>Profile</h2>
+        <section className="pf-card">
+          <div className="pf-account">
+            <span className="pf-avatar pf-avatar-letter" aria-hidden="true">
+              {currentName ? currentName.charAt(0).toUpperCase() : <Icon name="user" size={22} />}
+            </span>
+            <div className="pf-account-text">
+              <h2>
+                Your name <span className="pf-optional">Optional</span>
+              </h2>
+              <p>
+                Add a name to personalise the app, for example "Welcome back, Sakshi". It's only stored on
+                this computer. Leave it empty if you prefer.
+              </p>
+            </div>
+          </div>
+          <form className="pf-name-row" onSubmit={saveName}>
+            <input
+              value={nameDraft}
+              maxLength={40}
+              placeholder="Your name"
+              aria-label="Your name"
+              onChange={(e) => setNameDraft(e.target.value)}
+            />
+            <button type="submit" className="sx-primary-btn" disabled={nameDraft.trim() === currentName}>
+              Save
+            </button>
+            {currentName ? (
+              <button type="button" className="sx-ghost-btn" onClick={removeName}>
+                Remove name
+              </button>
+            ) : null}
+          </form>
+          {nameNotice ? <div className="pf-saved" role="status">{nameNotice}</div> : null}
+        </section>
 
-            {isGuest ? (
-              <div>
-                <p className="guest-banner">
-                  You are using the app as a <strong>Guest</strong>. Sign in to save items, view your past searches, and personalize your profile.
-                </p>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn-primary" onClick={() => navigate("/signin")}>Sign in / Register</button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {loading && <div>Loading profile…</div>}
-                {error && <div style={{ color: "#b92222" }}>{error}</div>}
-
-                {!loading && (
-                  <>
-                    <div style={{ display: "flex", gap: 18, alignItems: "center", marginTop: 10 }}>
-                      <div style={{ flex: 1 }}>
-                        {/* show profile fields, falling back to user prop if profile is not available */}
-                        <div style={{ fontSize: 18, fontWeight: 700 }}>
-                          {profile?.name || user?.name || profile?.fullName || profile?.displayName || "—"}
-                        </div>
-                        <div style={{ color: "var(--muted)", marginTop: 6 }}>
-                          {profile?.email || user?.email || "—"}
-                        </div>
-                        {profile?.bio && <div style={{ marginTop: 10 }}>{profile.bio}</div>}
-                      </div>
-
-                      <div style={{ textAlign: "right" }}>
-                        <button className="btn-outline" onClick={() => navigate("/welcome")}>Edit profile</button>
-                        <div style={{ height: 8 }} />
-                        <button className="btn-reset" onClick={handleSignOutLocal}>Log out</button>
-                      </div>
-                    </div>
-
-                    <hr style={{ margin: "18px 0", border: "none", borderTop: "1px solid #f3f7fb" }} />
-
-                    <div>
-                      <strong>Account details</strong>
-                      <div style={{ marginTop: 8, color: "var(--muted)" }}>
-                        <div>
-                          Joined:&nbsp;
-                          {profile?.createdAt
-                            ? new Date(profile.createdAt).toLocaleDateString()
-                            : (profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : (user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"))
-                          }
-                        </div>
-                        <div>Email verified: {(profile?.emailVerified || profile?.email_verified || user?.emailVerified) ? "Yes" : "No"}</div>
-                        {!(profile?.emailVerified || profile?.email_verified || user?.emailVerified) ? (
-                          <div className="verify-banner">
-                            <div className="verify-text">
-                              Please verify your email to unlock all features.
-                            </div>
-                            <div className="verify-actions">
-                              <button className="btn-outline" onClick={handleResendVerification}>
-                                Resend verification email
-                              </button>
-                            </div>
-                            {verifyNotice && <div className="verify-notice">{verifyNotice}</div>}
-                            {verifyError && <div className="verify-error">{verifyError}</div>}
-                          </div>
-                        ) : null}
-                        <div style={{ marginTop: 10 }}>
-                          <button className="btn-outline" onClick={() => navigate("/saved")}>View saved items</button>
-                          <button className="btn-outline" style={{ marginLeft: 8 }} onClick={() => navigate("/history")}>View history</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <hr style={{ margin: "18px 0", border: "none", borderTop: "1px solid #f3f7fb" }} />
-
-                    <section className="knowledge-card">
-                      <h3>Knowledge Center</h3>
-                      <p className="knowledge-text">
-                        This app prepares your folders for search, reads text inside many files,
-                        and helps you find what you need using simple filters.
-                      </p>
-                      <div className="knowledge-mini-list">
-                        <div>1. Choose a folder to prepare for search.</div>
-                        <div>2. Use filters like file kind, text, date, and size.</div>
-                        <div>3. Open any result and use actions like Save, Copy, Share, or Ask.</div>
-                      </div>
-                      <div className="knowledge-keywords">
-                        {suggestedKeywords.map((keyword) => (
-                          <span key={keyword} className="keyword-chip">
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        className="btn-outline"
-                        type="button"
-                        onClick={() => navigate("/knowledge")}
-                      >
-                        Read More About Usage
-                      </button>
-                    </section>
-
-                    <hr style={{ margin: "18px 0", border: "none", borderTop: "1px solid #f3f7fb" }} />
-
-                    <section className="privacy-card">
-                      <h3>Background Indexing & Privacy</h3>
-                      <p className="knowledge-text">
-                        Keep search ready in the background. Only selected folders are monitored.
-                      </p>
+        <section className="pf-card privacy-card">
+          <h3>Background indexing</h3>
+          <p className="knowledge-text">
+            Keep search up to date automatically. New and changed files in your folders are indexed while the app runs.
+          </p>
                       {!isDesktopServiceAvailable ? (
                         <div className="reset-error">
                           Desktop background service is unavailable in browser mode.
@@ -492,34 +425,36 @@ export default function Profile({ user, onSignOut }) {
                       ) : null}
                       {bgMessage ? <div className="reset-notice">{bgMessage}</div> : null}
                       {bgError ? <div className="reset-error">{bgError}</div> : null}
-                    </section>
+        </section>
 
-                    <hr style={{ margin: "18px 0", border: "none", borderTop: "1px solid #f3f7fb" }} />
+        <section className="pf-card reset-card">
+          <h3>Reset app data</h3>
+          <p className="knowledge-text">
+            Clears indexed files so you can start fresh. Your files on disk are never touched.
+          </p>
+          <button className="pg-danger-btn" type="button" onClick={handleResetApp} disabled={resetBusy}>
+            {resetBusy ? "Resetting…" : "Reset app data"}
+          </button>
+          {resetNotice ? <div className="reset-notice">{resetNotice}</div> : null}
+          {resetError ? <div className="reset-error">{resetError}</div> : null}
+        </section>
 
-                    <section className="reset-card">
-                      <h3>Reset App</h3>
-                      <p className="knowledge-text">
-                        Clear indexed files, saved items, and history to start fresh.
-                      </p>
-                      <button
-                        className="btn-danger"
-                        type="button"
-                        onClick={handleResetApp}
-                        disabled={resetBusy}
-                      >
-                        {resetBusy ? "Resetting..." : "Reset App Data"}
-                      </button>
-                      {resetNotice ? <div className="reset-notice">{resetNotice}</div> : null}
-                      {resetError ? <div className="reset-error">{resetError}</div> : null}
-                    </section>
-
-                  </>
-                )}
-              </div>
-            )}
+        <section className="pf-card knowledge-card">
+          <h3>How it works</h3>
+          <div className="knowledge-mini-list">
+            <div>1. Add a folder in the sidebar. Every file in it and its subfolders gets indexed.</div>
+            <div>2. Search the words inside your screenshots, PDFs and documents, or search with a picture.</div>
+            <div>3. Click a result to preview it, then open, save or ask about it.</div>
           </div>
-        </main>
-      </div>
+          <div className="knowledge-keywords">
+            {suggestedKeywords.map((keyword) => (
+              <span key={keyword} className="keyword-chip">
+                {keyword}
+              </span>
+            ))}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

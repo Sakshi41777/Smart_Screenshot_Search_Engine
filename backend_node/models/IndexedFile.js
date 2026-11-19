@@ -98,6 +98,12 @@ const IndexedFileSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Perceptual hash (dHash) for "search by image" / similar screenshots.
+    perceptualHash: {
+      type: String,
+      default: null,
+    },
+
     semanticVector: {
       type: [Number],
       default: undefined,

@@ -1,7 +1,9 @@
 const Tesseract = require("tesseract.js");
 const fs = require("fs");
 const path = require("path");
-const pdfParse = require("pdf-parse");
+// pdf-parse v1 (works on Electron's bundled Node). Require the lib file directly:
+// the package index runs a self-test that reads a sample PDF when required this way.
+const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 const sharp = require("sharp");
 const axios = require("axios");
 const FormData = require("form-data");

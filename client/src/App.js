@@ -1,10 +1,11 @@
 // client/src/App.js
-import React, { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+// No sign-in: the app opens straight to Search with a local profile stored on
+// this computer, so Saved and History always work. Users can optionally set a
+// display name in Settings to personalise the app (see displayName.js).
+import React, { useCallback, useEffect, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import Welcome from "./Welcome";
-import SignIn from "./SignIn";
-import CreateAccount from "./CreateAccount";
+import api from "./api";
 import SearchPage from "./pages/SearchPage";
 import Profile from "./pages/Profile";
 import Saved from "./pages/Saved";
@@ -21,192 +22,121 @@ function readSavedUser() {
 }
 
 function readSavedToken() {
-  return localStorage.getItem("APP_TOKEN");
+  try {
+    return localStorage.getItem("APP_TOKEN");
+  } catch {
+    return null;
+  }
 }
 
 function persistAuth({ token, user }) {
-  localStorage.removeItem("APP_TOKEN");
-  localStorage.removeItem("APP_USER");
-
-  if (token) localStorage.setItem("APP_TOKEN", token);
-  if (user) localStorage.setItem("APP_USER", JSON.stringify(user));
+  try {
+    localStorage.removeItem("APP_TOKEN");
+    localStorage.removeItem("APP_USER");
+    if (token) localStorage.setItem("APP_TOKEN", token);
+    if (user) localStorage.setItem("APP_USER", JSON.stringify(user));
+  } catch {}
 }
+
+function clearAuth() {
+  try {
+    localStorage.removeItem("APP_TOKEN");
+    localStorage.removeItem("APP_USER");
+  } catch {}
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ---------- App ---------- */
 export default function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false); // 🔥 NEW
+  const [authReady, setAuthReady] = useState(false);
+  const [startError, setStartError] = useState("");
 
-  /* Restore session on refresh */
-  useEffect(() => {
-    const savedUser = readSavedUser();
-    const token = readSavedToken();
-
-    if (savedUser) {
-      setUser(savedUser);
-    } else if (token) {
-      // token exists but user not yet fetched
-      setUser({ tokenOnly: true });
+  // Get (or create) the built-in local profile and use it.
+  const openLocalProfile = useCallback(async () => {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const res = await api.post("/api/auth/local");
+        const token = res?.data?.token;
+        const localUser = res?.data?.user ? { ...res.data.user, local: true } : null;
+        if (token && localUser) {
+          persistAuth({ token, user: localUser });
+          setUser(localUser);
+          setStartError("");
+          return true;
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+      await sleep(800); // backend may still be starting
     }
-
-    setAuthReady(true); // 🔥 auth state resolved
+    console.error("Local profile unavailable", lastErr);
+    setStartError("The app couldn't start its local database. Close the app and open it again.");
+    return false;
   }, []);
 
-  /* 🔥 AUTO-CLEAR GUEST WHEN OPENING AUTH PAGES */
+  /* Restore session on start, or open the local profile */
   useEffect(() => {
-    if (
-      authReady &&
-      user?.guest === true &&
-      (location.pathname === "/signin" || location.pathname === "/register")
-    ) {
-      localStorage.removeItem("APP_USER");
+    let cancelled = false;
+    (async () => {
+      const savedUser = readSavedUser();
+      const token = readSavedToken();
+      if (token && savedUser && savedUser.local === true) {
+        setUser(savedUser);
+      } else {
+        clearAuth();
+        await openLocalProfile();
+      }
+      if (!cancelled) setAuthReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openLocalProfile]);
+
+  // No accounts: nothing to sign out of. Kept so pages can pass it through.
+  function handleSignOut() {}
+
+  /* Backend rejected the saved token: fall back to the local profile */
+  useEffect(() => {
+    async function onExpired() {
+      clearAuth();
       setUser(null);
+      await openLocalProfile();
     }
-  }, [location.pathname, user, authReady]);
+    window.addEventListener("app:session-expired", onExpired);
+    return () => window.removeEventListener("app:session-expired", onExpired);
+  }, [openLocalProfile]);
 
-  /* Unified auth handler */
-  function handleAuth({ token, user }) {
-    // Guest login
-    if (user?.guest === true) {
-      localStorage.setItem("APP_USER", JSON.stringify(user));
-      setUser(user);
-      navigate("/search", { replace: true });
-      return;
-    }
-
-    // Normal login / register / Google
-    if (!token || !user) {
-      console.error("Invalid auth payload");
-      return;
-    }
-
-    persistAuth({ token, user });
-    setUser(user);
-    navigate("/search", { replace: true });
+  if (!authReady || (!user && !startError)) {
+    return (
+      <div className="app-boot" role="status">
+        <span className="app-boot-spinner" aria-hidden="true" />
+        Starting…
+      </div>
+    );
   }
 
-  function handleSignOut() {
-    localStorage.clear();
-    setUser(null);
-    navigate("/", { replace: true });
+  if (!user && startError) {
+    return (
+      <div className="app-boot" role="alert">
+        {startError}
+      </div>
+    );
   }
-
-  // 🔥 WAIT until auth is ready (THIS FIXES EVERYTHING)
-  if (!authReady) {
-    return null; // or loader
-  }
-
-  const isGuest = Boolean(user?.guest === true);
-  const isAuthed = Boolean(user && !isGuest);
 
   return (
     <Routes>
-      {/* Welcome */}
-      <Route
-        path="/"
-        element={
-          isAuthed ? <Navigate to="/search" replace /> : <Welcome onAuth={handleAuth} />
-        }
-      />
+      <Route path="/" element={<Navigate to="/search" replace />} />
+      <Route path="/search" element={<SearchPage user={user} onSignOut={handleSignOut} />} />
+      <Route path="/saved" element={<Saved user={user} onSignOut={handleSignOut} />} />
+      <Route path="/history" element={<History user={user} onSignOut={handleSignOut} />} />
+      <Route path="/profile" element={<Profile user={user} onSignOut={handleSignOut} />} />
+      <Route path="/knowledge" element={<Knowledge user={user} onSignOut={handleSignOut} />} />
 
-      {/* Explicit Welcome page (used by profile edit action) */}
-      <Route
-        path="/welcome"
-        element={<Welcome onAuth={handleAuth} />}
-      />
-
-      {/* Sign In */}
-      <Route
-        path="/signin"
-        element={
-          isAuthed ? (
-            <Navigate to="/search" replace />
-          ) : (
-            <SignIn
-              onAuth={handleAuth}
-              onShowRegister={() => navigate("/register")}
-            />
-          )
-        }
-      />
-
-      {/* Register */}
-      <Route
-        path="/register"
-        element={
-          isAuthed ? (
-            <Navigate to="/search" replace />
-          ) : (
-            <CreateAccount
-              onRegistered={handleAuth}
-              onShowLogin={() => navigate("/signin")}
-            />
-          )
-        }
-      />
-
-      {/* Search (guest + auth allowed) */}
-      <Route
-        path="/search"
-        element={
-          user ? (
-            <SearchPage user={user} onSignOut={handleSignOut} />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
-
-      {/* Auth-only routes */}
-      <Route
-        path="/profile"
-        element={
-          isAuthed ? (
-            <Profile user={user} onSignOut={handleSignOut} />
-          ) : (
-            <Navigate to="/signin" replace />
-          )
-        }
-      />
-
-      <Route
-        path="/saved"
-        element={
-          isAuthed ? (
-            <Saved user={user} onSignOut={handleSignOut} />
-          ) : (
-            <Navigate to="/signin" replace />
-          )
-        }
-      />
-
-      <Route
-        path="/history"
-        element={
-          isAuthed ? (
-            <History user={user} onSignOut={handleSignOut} />
-          ) : (
-            <Navigate to="/signin" replace />
-          )
-        }
-      />
-
-      <Route
-        path="/knowledge"
-        element={
-          isAuthed ? (
-            <Knowledge user={user} onSignOut={handleSignOut} />
-          ) : (
-            <Navigate to="/signin" replace />
-          )
-        }
-      />
-
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/search" replace />} />
     </Routes>
   );
 }

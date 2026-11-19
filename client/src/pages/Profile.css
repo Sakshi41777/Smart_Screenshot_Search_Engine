@@ -1,16 +1,16 @@
 /* Profile.css - profile page tweaks */
 
 .sp-card {
-  background: #fff;
+  background: #fffdf9;
   padding: 18px;
   border-radius: 12px;
-  border: 1px solid #eef2f7;
-  box-shadow: 0 6px 20px rgba(8,30,69,0.04);
+  border: 1px solid #f9f0e9;
+  box-shadow: 0 6px 20px rgba(42, 28, 18, 0.04);
 }
 
 h2, h3 {
   margin: 0 0 10px 0;
-  color: #0b1226;
+  color: #1a110b;
 }
 
 .guest-banner {
@@ -25,8 +25,8 @@ h2, h3 {
 .btn-outline, .btn-reset {
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #e6eef6;
-  background: #fff;
+  border: 1px solid #f6ebe2;
+  background: #fffdf9;
   cursor: pointer;
   font-weight: 600;
 }
@@ -61,23 +61,23 @@ h2, h3 {
 .knowledge-card {
   margin-top: 4px;
   padding: 14px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #f5e6db;
   border-radius: 10px;
-  background: #f8fbff;
+  background: #fdfaf8;
   display: grid;
   gap: 10px;
 }
 
 .knowledge-text {
   margin: 0;
-  color: #334155;
+  color: #4f3c2a;
   line-height: 1.5;
 }
 
 .knowledge-mini-list {
   display: grid;
   gap: 4px;
-  color: #0f172a;
+  color: #1f150d;
   font-size: 14px;
 }
 
@@ -90,10 +90,10 @@ h2, h3 {
 .keyword-chip {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #edd4bf;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #faf4ef;
+  color: #7a5334;
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 600;
@@ -114,7 +114,7 @@ h2, h3 {
   border-radius: 8px;
   border: 1px solid #ef4444;
   background: #ef4444;
-  color: #fff;
+  color: #fffdf9;
   cursor: pointer;
   font-weight: 700;
   width: fit-content;
@@ -149,7 +149,7 @@ h2, h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #0f172a;
+  color: #1f150d;
   font-weight: 600;
 }
 
@@ -160,7 +160,7 @@ h2, h3 {
 }
 
 .privacy-status {
-  color: #334155;
+  color: #4f3c2a;
   font-size: 13px;
 }
 
@@ -177,6 +177,6 @@ h2, h3 {
   padding: 8px 10px;
   border: 1px solid #dcfce7;
   border-radius: 8px;
-  background: #fff;
+  background: #fffdf9;
   font-size: 13px;
 }

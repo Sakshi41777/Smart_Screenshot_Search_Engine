@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import TopNav from "../components/TopNav";
+import Icon from "../components/Icon";
 import "./History.css";
 
 export default function History({ user, onSignOut }) {
@@ -164,110 +165,141 @@ export default function History({ user, onSignOut }) {
     navigate("/search", { state: { query: q, path: rerunPath, autoRun: true } });
   }
 
-  function renderDate(h) {
+  function entryTime(h) {
     const ts = h.timestamp || h.createdAt || h.created_at || h.updatedAt || h.updated_at;
-    if (!ts) return "-";
-    try {
-      return new Date(ts).toLocaleString();
-    } catch {
-      return ts;
-    }
+    const d = ts ? new Date(ts) : null;
+    return d && !Number.isNaN(d.getTime()) ? d : null;
+  }
+
+  function dayLabel(d) {
+    if (!d) return "Earlier";
+    const today = new Date();
+    const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diffDays = Math.round((startOf(today) - startOf(d)) / 86400000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function folderName(h) {
+    const p = String(h.folderPath || h.path || "").replace(/[\\/]+$/, "");
+    return p ? p.split(/[\\/]/).pop() : "";
+  }
+
+  const groups = [];
+  for (const h of history) {
+    const label = dayLabel(entryTime(h));
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(h);
+    else groups.push({ label, items: [h] });
   }
 
   return (
     <div className="sp-root">
       <TopNav user={user} onSignOut={onSignOut} />
 
-      <div style={{ marginTop: 12 }} />
-
-      <div className="sp-body" style={{ gridTemplateColumns: "1fr" }}>
-        <main style={{ gridColumn: "1 / -1" }}>
-          <div className="sp-card">
-            <h2>Recent Activity</h2>
-
-            {isGuest ? (
-              <div>
-                <p className="guest-banner">
-                  Recent activity is available after sign in. Sign in to keep your search history.
-                </p>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn-primary" onClick={handleSignIn}>Sign in / Register</button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {!loading && !error && history.length > 0 ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                    <button className="btn-outline" onClick={toggleSelectAll}>
-                      {selectedIds.size === history.length ? "Clear Selection" : "Select All"}
-                    </button>
-                    <button
-                      className="btn-outline"
-                      onClick={removeSelected}
-                      disabled={selectedIds.size === 0}
-                    >
-                      Remove Selected ({selectedIds.size})
-                    </button>
-                    <button className="btn-reset" onClick={clearAllHistory}>
-                      Remove All
-                    </button>
-                  </div>
-                ) : null}
-
-                {loading && <div>Loading...</div>}
-                {error && <div style={{ color: "#b92222" }}>{error}</div>}
-
-                {!loading && !error && (
-                  <>
-                    {!history.length ? (
-                      <div className="no-results" style={{ padding: 20 }}>
-                        <div style={{ fontSize: 18, marginBottom: 8, fontWeight: 600 }}>
-                          No activity yet.
-                        </div>
-                        <div style={{ color: "var(--muted)", marginBottom: 12 }}>
-                          Your recent searches will appear here so you can run them again quickly.
-                        </div>
-                        <div>
-                          <button className="btn-primary" onClick={() => navigate("/search")}>
-                            Go to Search
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {history.map((h, idx) => {
-                          const id = getItemId(h);
-                          const key = id || idx;
-                          return (
-                            <div key={key} className="sp-card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(id)}
-                                onChange={() => toggleSelect(id)}
-                                aria-label="Select activity item"
-                              />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700 }}>{h.title || h.query || "Search item"}</div>
-                                <div style={{ color: "var(--muted)" }}>{renderDate(h)}</div>
-                              </div>
-                              <div>
-                                <button className="btn-outline" onClick={() => rerunEntry(h)}>Run Again</button>
-                                <button className="btn-reset" style={{ marginLeft: 8 }} onClick={() => removeEntry(h)}>
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+      <main className="pg-main">
+        <header className="pg-head">
+          <div>
+            <h1>History</h1>
+            <p>Your recent searches. Run any of them again with one click.</p>
           </div>
-        </main>
-      </div>
+          {!isGuest && !loading && !error && history.length > 0 ? (
+            <div className="pg-head-actions">
+              <button type="button" className="sx-ghost-btn" onClick={toggleSelectAll}>
+                {selectedIds.size === history.length ? "Clear selection" : "Select all"}
+              </button>
+              {selectedIds.size > 0 ? (
+                <button type="button" className="sx-ghost-btn" onClick={removeSelected}>
+                  <Icon name="trash" size={15} />
+                  Remove {selectedIds.size}
+                </button>
+              ) : null}
+              <button type="button" className="pg-danger-btn" onClick={clearAllHistory}>
+                Clear history
+              </button>
+            </div>
+          ) : null}
+        </header>
+
+        {isGuest ? (
+          <div className="sx-empty">
+            <span className="sx-empty-icon"><Icon name="clock" size={26} /></span>
+            <h2>Sign in to keep your history</h2>
+            <p>Guests can search, but past searches are only saved for signed-in accounts.</p>
+            <button type="button" className="sx-primary-btn" onClick={handleSignIn}>Sign in</button>
+          </div>
+        ) : loading && !history.length ? (
+          <div className="pg-loading">Loading your history…</div>
+        ) : error ? (
+          <div className="sp-alert" role="alert">
+            <span className="sp-alert-icon" aria-hidden="true">!</span>
+            {error}
+          </div>
+        ) : !history.length ? (
+          <div className="sx-empty">
+            <span className="sx-empty-icon"><Icon name="clock" size={26} /></span>
+            <h2>No searches yet</h2>
+            <p>Your searches will appear here so you can run them again quickly.</p>
+            <button type="button" className="sx-primary-btn" onClick={() => navigate("/search")}>
+              <Icon name="search" size={16} />
+              Go to search
+            </button>
+          </div>
+        ) : (
+          <div className="hx-timeline">
+            {groups.map((group) => (
+              <section key={group.label} className="hx-group">
+                <h2 className="hx-day">{group.label}</h2>
+                <div className="hx-list">
+                  {group.items.map((h, idx) => {
+                    const id = getItemId(h);
+                    const key = id || `${group.label}-${idx}`;
+                    const d = entryTime(h);
+                    const folder = folderName(h);
+                    const checked = selectedIds.has(id);
+                    return (
+                      <div key={key} className={`hx-row ${checked ? "is-checked" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelect(id)}
+                          aria-label={`Select ${h.title || h.query || "search"}`}
+                        />
+                        <span className="hx-icon"><Icon name="search" size={16} /></span>
+                        <div className="hx-text">
+                          <div className="hx-query">{h.title || h.query || "Search"}</div>
+                          <div className="hx-meta">
+                            {d ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : ""}
+                            {folder ? (
+                              <span className="hx-folder">
+                                <Icon name="folder" size={13} />
+                                {folder}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <button type="button" className="sx-ghost-btn hx-run" onClick={() => rerunEntry(h)}>
+                          Run again
+                        </button>
+                        <button
+                          type="button"
+                          className="sb-icon-btn"
+                          aria-label="Remove from history"
+                          title="Remove"
+                          onClick={() => removeEntry(h)}
+                        >
+                          <Icon name="trash" size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

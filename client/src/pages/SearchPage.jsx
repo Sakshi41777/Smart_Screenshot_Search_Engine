@@ -4,6 +4,9 @@ import { useLocation } from "react-router-dom";
 import api from "../api";
 import TopNav from "../components/TopNav";
 import Modal from "../components/Modal";
+import InfoTip from "../components/InfoTip";
+import Icon from "../components/Icon";
+import { markNamePromptDone, setDisplayName, useDisplayName, wasNamePromptDone } from "../displayName";
 import "./SearchPage.css";
 import "react-image-crop/dist/ReactCrop.css";
 import { similarity } from "../search/fuzzy";
@@ -44,15 +47,15 @@ function getDocumentIcon(file, large = false) {
   )}" viewBox="0 0 ${size} ${Math.round(size * 0.62)}">
   <rect x="0" y="0" width="${size}" height="${Math.round(
     size * 0.62
-  )}" rx="20" fill="#f8fafc"/>
+  )}" rx="20" fill="#fdfaf7"/>
   <rect x="18" y="18" width="${size - 36}" height="${Math.round(
     size * 0.62 - 36
-  )}" rx="16" fill="#e2e8f0" stroke="#cbd5e1"/>
+  )}" rx="16" fill="#f4e4d8" stroke="#dfd2c4"/>
   <rect x="${Math.round(size * 0.12)}" y="${Math.round(
     size * 0.19
   )}" width="${Math.round(size * 0.2)}" height="${Math.round(
     size * 0.24
-  )}" rx="10" fill="${ext === "pdf" ? "#dc2626" : "#2563eb"}"/>
+  )}" rx="10" fill="${ext === "pdf" ? "#dc2626" : "#91643e"}"/>
   <text x="${Math.round(size * 0.22)}" y="${Math.round(
     size * 0.34
   )}" text-anchor="middle" fill="#fff" font-size="${Math.round(
@@ -60,12 +63,12 @@ function getDocumentIcon(file, large = false) {
   )}" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${label}</text>
   <text x="${Math.round(size * 0.38)}" y="${Math.round(
     size * 0.28
-  )}" fill="#0f172a" font-size="${Math.round(
+  )}" fill="#1f150d" font-size="${Math.round(
     size * 0.05
   )}" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Document Preview</text>
   <text x="${Math.round(size * 0.38)}" y="${Math.round(
     size * 0.36
-  )}" fill="#475569" font-size="${Math.round(
+  )}" fill="#65503a" font-size="${Math.round(
     size * 0.032
   )}" font-family="Segoe UI, Arial, sans-serif">Open file location to view original file.</text>
 </svg>`;
@@ -364,7 +367,14 @@ function annotateDuplicates(list = []) {
 export default function SearchPage({ user, onSignOut }) {
   const location = useLocation();
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("choose");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const displayName = useDisplayName();
+  const [namePromptDone, setNamePromptDone] = useState(wasNamePromptDone);
+  const [nameInput, setNameInput] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [rawResults, setRawResults] = useState([]);
+  const lastQueryRef = useRef("");
   const [extFilter, setExtFilter] = useState("all");
   const [sortBy, setSortBy] = useState("relevance");
   const [sizeMin, setSizeMin] = useState("");
@@ -408,7 +418,7 @@ export default function SearchPage({ user, onSignOut }) {
   const [results, setResults] = useState([]);
   const [selected, setSelected] = useState(null);
   const [stats, setStats] = useState({ count: 0 });
-  const [resultLimit, setResultLimit] = useState(20);
+  const [resultLimit, setResultLimit] = useState(24);
   const [showAllResults, setShowAllResults] = useState(false);
   const [showOcrText, setShowOcrText] = useState(true);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -726,7 +736,7 @@ export default function SearchPage({ user, onSignOut }) {
     }
 
     console.error("Save failed", lastErr);
-    showActionMessage("Save failed.");
+    showActionMessage("Couldn't save this file. Try again in a moment.");
   }
 
   async function handleCopyDescription(file) {
@@ -1038,6 +1048,13 @@ export default function SearchPage({ user, onSignOut }) {
             : item
         )
       );
+      setRawResults((prev) =>
+        prev.map((item) =>
+          item.path === filePath
+            ? { ...item, extractText: restoredText, extractedText: restoredText }
+            : item
+        )
+      );
       setPreviousOcrByPath((prev) => {
         const next = { ...prev };
         delete next[filePath];
@@ -1092,6 +1109,13 @@ export default function SearchPage({ user, onSignOut }) {
         )
       );
       setTop5((prev) =>
+        prev.map((item) =>
+          item.path === filePath
+            ? { ...item, extractText: nextText, extractedText: nextText }
+            : item
+        )
+      );
+      setRawResults((prev) =>
         prev.map((item) =>
           item.path === filePath
             ? { ...item, extractText: nextText, extractedText: nextText }
@@ -1162,6 +1186,8 @@ export default function SearchPage({ user, onSignOut }) {
       if (result) {
         showActionMessage("Extra copy removed.");
         setTop5((prev) => prev.filter((f) => f.path !== file.path));
+        setResults((prev) => prev.filter((f) => f.path !== file.path));
+        setRawResults((prev) => prev.filter((f) => f.path !== file.path));
         setStats((prev) => ({ count: Math.max(0, (prev?.count || 0) - 1) }));
         setSelected(null);
         if (showPreviewModal) setShowPreviewModal(false);
@@ -1729,7 +1755,7 @@ export default function SearchPage({ user, onSignOut }) {
       return;
     }
 
-    if (!effectiveQuery) {
+    if (!effectiveQuery && !selectedImage) {
       setShowRequiredHints(true);
       showActionMessage("Please type what you want to find.");
       return;
@@ -1772,6 +1798,9 @@ export default function SearchPage({ user, onSignOut }) {
       }
 
       const normalized = normalizeFiles(files);
+      setRawResults(normalized);
+      lastQueryRef.current = effectiveQuery;
+      setHasSearched(true);
       const scored = applyFiltersAndSort(normalized, effectiveQuery);
       const annotated = annotateDuplicates(scored);
 
@@ -1815,6 +1844,14 @@ export default function SearchPage({ user, onSignOut }) {
       setLoading(false);
     }
   }, [query, pendingImageFile, selectedFolders, selected, results, isTypeChosen, canSearch, user, api, ensureIndexedForSearch, normalizeFiles, applyFiltersAndSort, annotateDuplicates, showActionMessage]);
+
+  useEffect(() => {
+    if (!rawResults.length) return;
+    const annotated = annotateDuplicates(applyFiltersAndSort(rawResults, lastQueryRef.current));
+    setResults(annotated);
+    setStats({ count: annotated.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawResults, typeFilter, extFilter, sortBy, sizeMin, sizeMax, dateFrom, dateTo]);
 
   useEffect(() => {
     if (showCameraModal && captureSource === "camera" && !captureUrl) {
@@ -1894,324 +1931,589 @@ export default function SearchPage({ user, onSignOut }) {
     runSearch();
   }, [pendingSearchAfterIndex, canSearch, loading, runSearch]);
 
+  const visibleResults = showAllResults ? results : results.slice(0, resultLimit);
+  const activeKind =
+    typeFilter === "image"
+      ? "image"
+      : typeFilter === "document" && extFilter === "pdf"
+        ? "pdf"
+        : typeFilter === "document"
+          ? "document"
+          : "all";
+  const filtersActive =
+    (extFilter !== "all" && activeKind !== "pdf") ||
+    sortBy !== "relevance" ||
+    Boolean(sizeMin || sizeMax || dateFrom || dateTo);
+  const selectedFolderOfFile = selected?.path
+    ? getFolderDisplayName(getParentFolderFromPath(selected.path))
+    : "";
+
+  function setKind(kind) {
+    if (kind === "image") {
+      setTypeFilter("image");
+      setExtFilter("all");
+    } else if (kind === "pdf") {
+      setTypeFilter("document");
+      setExtFilter("pdf");
+    } else if (kind === "document") {
+      setTypeFilter("document");
+      setExtFilter("all");
+    } else {
+      setTypeFilter("all");
+      setExtFilter("all");
+    }
+  }
+
+  function clearImageQuery() {
+    if (matchQueryUrl && matchQueryUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(matchQueryUrl);
+    }
+    setPendingImageFile(null);
+    setImageSearchLabel("");
+    setMatchQueryUrl("");
+    setMatchQueryLabel("");
+  }
+
+  function resetFilters() {
+    setKind("all");
+    setSortBy("relevance");
+    setSizeMin("");
+    setSizeMax("");
+    setDateFrom("");
+    setDateTo("");
+  }
+
+  function matchReason(file) {
+    if (file?.matchType === "visual") return "Looks similar";
+    if (file?.matchType === "text") return "Same text";
+    const q = String(lastQueryRef.current || "").trim().toLowerCase();
+    if (!q) return "";
+    if (String(file?.name || "").toLowerCase().includes(q)) return "In file name";
+    if (String(file?.extractText || "").toLowerCase().includes(q)) return "Text match";
+    if (String(file?.path || "").toLowerCase().includes(q)) return "In folder name";
+    return "Related";
+  }
+
+  async function handleOpenFile(file) {
+    if (!file?.path) {
+      showActionMessage("File location not available.");
+      return;
+    }
+    if (!window.electronAPI?.openPath) {
+      handleOpenOriginal(file);
+      return;
+    }
+    try {
+      const result = await window.electronAPI.openPath(file.path);
+      if (result && typeof result === "string") showActionMessage(`Couldn't open the file: ${result}`);
+    } catch {
+      showActionMessage("Couldn't open the file.");
+    }
+  }
+
+  const indexStatusLabel = isIndexing
+    ? "Indexing"
+    : indexError
+      ? "Needs attention"
+      : indexReady
+        ? "Ready to search"
+        : selectedFolders.length
+          ? "Not indexed yet"
+          : "No folder yet";
+
   return (
-    <div className="sp-root">
-      <div className="sp-project-title">Search Screenshots and Documents</div>
-      <TopNav user={user} onSignOut={onSignOut} />
+    <div className={`sp-root sx-shell ${selected ? "has-preview" : ""}`}>
+      <TopNav user={user} onSignOut={onSignOut}>
+        <div className="sb-section-title">
+          Your folders
+          <InfoTip
+            label="How folder search works"
+            text="Pick any folder, such as Screenshots or Desktop. Every file inside it and in all its subfolders is included. You can select several folders at once."
+          />
+        </div>
+        {selectedFolders.map((folder) => (
+          <div key={folder} className="sb-folder" title={folder}>
+            <Icon name="folder" size={16} />
+            <span>{getFolderDisplayName(folder)}</span>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="sb-folder sb-folder-add"
+          onClick={pickFolderElectron}
+          disabled={isIndexing}
+        >
+          <Icon name="plus" size={16} />
+          <span>{selectedFolders.length ? "Change folders" : "Add folder"}</span>
+        </button>
 
-      <div className="sp-body">
-        <aside className="sp-left">
-          <div className="sp-card">
-            <h3>Prepare Files</h3>
-
-            <button
-              className="btn-primary"
-              disabled={isIndexing}
-              onClick={pickFolderElectron}
-            >
-              {isIndexing ? "Preparing..." : "Add Folder to Search"}
-            </button>
-
-            <div className="index-actions-row">
-              <button
-                className="btn-outline"
-                disabled={!isIndexing}
-                onClick={() => stopIndexing()}
-              >
+        <div className="sb-index" title={indexError || progressMessage || ""}>
+          <div className="sb-index-row">
+            <strong>{indexStatusLabel}</strong>
+            {isIndexing ? (
+              <InfoTip
+                label="Indexing status"
+                align="right"
+                text={[progressMessage, folderTimingHint || "Please wait."].filter(Boolean).join(" · ")}
+              />
+            ) : null}
+            {isIndexing ? (
+              <button type="button" className="sb-mini-btn" onClick={() => stopIndexing()}>
+                <Icon name="stop" size={11} />
                 Stop
               </button>
-              <button
-                className="btn-outline"
-                onClick={changeFolder}
-              >
-                Change Folder
-              </button>
+            ) : null}
+          </div>
+          <div className={`sb-progress ${indexReady && !isIndexing ? "is-ready" : ""}`}>
+            <div style={{ width: `${selectedFolders.length ? progressPercent : 0}%` }} />
+          </div>
+          {indexError ? (
+            <div className="sp-alert" role="alert">
+              <span className="sp-alert-icon" aria-hidden="true">!</span>
+              {indexError}
             </div>
+          ) : null}
+        </div>
+      </TopNav>
 
-            <label>Find by Similar Image</label>
-            <div className="image-match-row">
+      <main className="sx-main">
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = () => {
+                setCaptureSource("gallery");
+                setCaptureUrl(String(reader.result || ""));
+                setCaptureLabel(file.name || "Gallery image");
+                setCrop({ unit: "%", x: 0, y: 0, width: 100, height: 100 });
+                setAspect(4 / 3);
+                setAspectPreset("free");
+                setCustomAspectW("4");
+                setCustomAspectH("3");
+                setCompletedCrop(null);
+                setShowCameraModal(true);
+              };
+              reader.readAsDataURL(file);
+            }
+            e.target.value = "";
+          }}
+          style={{ display: "none" }}
+        />
+
+        <header className="sx-head">
+          {displayName ? <p className="sx-hello">Welcome back, {displayName}</p> : null}
+          <h1>Find anything in your screenshots</h1>
+          <p>Search the words inside images, PDFs and documents, or search with a picture.</p>
+        </header>
+
+        {!displayName && !namePromptDone ? (
+          <div className="sx-name-prompt">
+            <span className="sx-name-prompt-text">
+              <strong>What should we call you?</strong> Optional, just to personalise the app. You can change it
+              later in Settings.
+            </span>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!nameInput.trim()) return;
+                setDisplayName(nameInput);
+                setNamePromptDone(true);
+              }}
+            >
               <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setCaptureSource("gallery");
-                      setCaptureUrl(String(reader.result || ""));
-                      setCaptureLabel(file.name || "Gallery image");
-                      setCrop({ unit: "%", x: 0, y: 0, width: 100, height: 100 });
-                      setAspect(4 / 3);
-                      setAspectPreset("free");
-                      setCustomAspectW("4");
-                      setCustomAspectH("3");
-                      setCompletedCrop(null);
-                      setShowCameraModal(true);
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                  e.target.value = "";
-                }}
-                style={{ display: "none" }}
+                value={nameInput}
+                maxLength={40}
+                placeholder="Your name"
+                aria-label="Your name"
+                onChange={(e) => setNameInput(e.target.value)}
               />
-              <button
-                className="btn-outline"
-                type="button"
-                disabled={loading}
-                onClick={handleGallerySelect}
-              >
-                Select Image (Gallery)
+              <button type="submit" className="sx-primary-btn" disabled={!nameInput.trim()}>
+                Save
               </button>
               <button
-                className="btn-outline"
                 type="button"
-                disabled={loading}
-                onClick={openCameraModal}
+                className="sx-ghost-btn"
+                onClick={() => {
+                  markNamePromptDone();
+                  setNamePromptDone(true);
+                }}
               >
-                Use Camera
+                Skip
               </button>
-            </div>
-            {imageSearchLabel ? (
-              <div className="image-match-status">
-                Selected image: {imageSearchLabel}
-                <button
-                  className="btn-outline clear-image-btn"
-                  type="button"
-                  onClick={() => {
-                    if (matchQueryUrl && matchQueryUrl.startsWith("blob:")) {
-                      URL.revokeObjectURL(matchQueryUrl);
-                    }
-                    setPendingImageFile(null);
-                    setImageSearchLabel("");
-                    setMatchQueryUrl("");
-                    setMatchQueryLabel("");
+            </form>
+          </div>
+        ) : null}
+
+        <div className={`sx-searchbar ${showRequiredHints && !hasQuery && !imageSearchLabel ? "is-required" : ""}`}>
+          <Icon name="search" size={20} className="sx-searchbar-icon" />
+          {imageSearchLabel ? (
+            <span className="sx-image-chip" title={imageSearchLabel}>
+              <Icon name="image" size={14} />
+              <span>{imageSearchLabel}</span>
+              <button type="button" aria-label="Remove image" onClick={clearImageQuery}>
+                <Icon name="close" size={12} />
+              </button>
+            </span>
+          ) : null}
+          <input
+            value={query}
+            disabled={loading}
+            aria-label="Search"
+            placeholder={
+              imageSearchLabel
+                ? "Add words to narrow it down (optional)"
+                : "Search words inside your screenshots…"
+            }
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (showRequiredHints) setShowRequiredHints(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") runSearch();
+            }}
+          />
+          <button
+            type="button"
+            className="sx-bar-btn"
+            disabled={loading}
+            onClick={handleGallerySelect}
+            title="Search with a picture: find screenshots that look like it or contain the same text"
+          >
+            <Icon name="image" size={16} />
+            By image
+          </button>
+          <button
+            type="button"
+            className="sx-bar-icon"
+            disabled={loading}
+            onClick={openCameraModal}
+            aria-label="Use camera"
+            title="Use camera"
+          >
+            <Icon name="camera" size={17} />
+          </button>
+          <button type="button" className="sx-search-btn" onClick={runSearch} disabled={loading}>
+            {loading ? (
+              <span className="btn-loading">
+                <span className="btn-spinner" aria-hidden="true" />
+                Searching
+              </span>
+            ) : (
+              "Search"
+            )}
+          </button>
+        </div>
+        {showRequiredHints && !hasQuery && !imageSearchLabel ? (
+          <div className="sp-alert" role="alert">
+            <span className="sp-alert-icon" aria-hidden="true">!</span>
+            Type what to find, or choose an image.
+          </div>
+        ) : null}
+
+        <div className="sx-toolbar">
+          <div className="sx-chips" role="group" aria-label="File type">
+            {[
+              ["all", "All"],
+              ["image", "Images"],
+              ["pdf", "PDFs"],
+              ["document", "Docs"],
+            ].map(([kind, label]) => (
+              <button
+                key={kind}
+                type="button"
+                className={`sx-chip ${activeKind === kind ? "is-active" : ""}`}
+                aria-pressed={activeKind === kind}
+                onClick={() => setKind(kind)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={`sx-filter-btn ${showFilters || filtersActive ? "is-active" : ""}`}
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <Icon name="sliders" size={16} />
+            Filters
+            {filtersActive ? <span className="sx-dot" aria-label="Filters on" /> : null}
+          </button>
+        </div>
+
+        {showFilters ? (
+          <div className="sx-filters">
+            <label>
+              File format
+              <select value={extFilter} onChange={(e) => setExtFilter(e.target.value)}>
+                <option value="all">Any</option>
+                <option value="png">.png</option>
+                <option value="jpg">.jpg</option>
+                <option value="jpeg">.jpeg</option>
+                <option value="webp">.webp</option>
+                <option value="gif">.gif</option>
+                <option value="bmp">.bmp</option>
+                <option value="pdf">.pdf</option>
+                <option value="txt">.txt</option>
+                <option value="md">.md</option>
+                <option value="csv">.csv</option>
+                <option value="log">.log</option>
+              </select>
+            </label>
+            <label>
+              Sort by
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="relevance">Best match</option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="size_desc">Largest</option>
+                <option value="size_asc">Smallest</option>
+              </select>
+            </label>
+            <label>
+              Size (KB)
+              <span className="sx-pair">
+                <input placeholder="Min" inputMode="numeric" value={sizeMin} onChange={(e) => setSizeMin(e.target.value)} />
+                <input placeholder="Max" inputMode="numeric" value={sizeMax} onChange={(e) => setSizeMax(e.target.value)} />
+              </span>
+            </label>
+            <label>
+              Date
+              <span className="sx-pair">
+                <input type="date" aria-label="From date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                <input type="date" aria-label="To date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </span>
+            </label>
+            <label>
+              Show
+              <select value={resultLimit} onChange={(e) => setResultLimit(Number(e.target.value))}>
+                <option value={12}>12 results</option>
+                <option value={24}>24 results</option>
+                <option value={48}>48 results</option>
+                <option value={96}>96 results</option>
+              </select>
+            </label>
+            <label className="sx-check">
+              <input type="checkbox" checked={showOcrText} onChange={(e) => setShowOcrText(e.target.checked)} />
+              Show text in results
+            </label>
+            <button type="button" className="sx-link-btn" onClick={resetFilters}>
+              Reset filters
+            </button>
+          </div>
+        ) : null}
+
+        {results.length ? (
+          <div className="sx-results-head">
+            <span>
+              {results.length} {results.length === 1 ? "result" : "results"}
+            </span>
+            <InfoTip
+              label="About results"
+              align="right"
+              text="Click a result to preview it on the right. Double-click to open the large preview with zoom, share and Ask about it."
+            />
+          </div>
+        ) : null}
+
+        {visibleResults.length ? (
+          <div className="sx-grid">
+            {visibleResults.map((f) => {
+              const isSel = selected && (selected.path || selected._id) === (f.path || f._id);
+              const reason = matchReason(f);
+              const folderName = getFolderDisplayName(getParentFolderFromPath(f.path || ""));
+              return (
+                <div
+                  key={f.path || f._id}
+                  role="button"
+                  tabIndex={0}
+                  className={`sx-card ${isSel ? "is-selected" : ""}`}
+                  onClick={() => setSelected(f)}
+                  onDoubleClick={() => openLargePreview(f)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setSelected(f);
                   }}
                 >
-                  Clear
-                </button>
-              </div>
-            ) : null}
-
-            <div
-              className="progress-wrap"
-              title={indexError || progressMessage || ""}
-            >
-              <div className="single-green-note">
-                {selectedFolders.length
-                  ? `Folder selected: ${getFolderDisplayName(selectedFolders[selectedFolders.length - 1])}`
-                  : "Choose a folder to start."}
-              </div>
-              <div className="progress-track">
-                <div
-                  className={`progress-bar ${isIndexing ? "is-active" : ""} ${indexReady ? "is-ready" : ""}`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              {indexError ? <div className="error-text">{indexError}</div> : null}
-              {selectedFolders.length && !indexError && isIndexing ? (
-                <div className="indexing-knowledge-note">
-                  {folderTimingHint || "Please wait."}
+                  <div className="sx-thumb">
+                    <img
+                      src={getImageSrc(f)}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.src = getDocumentIcon(f);
+                      }}
+                    />
+                    {f._dupCount > 1 ? <span className="sx-badge">Copy ×{f._dupCount}</span> : null}
+                  </div>
+                  <div className="sx-card-body">
+                    <div className="sx-card-name" title={f.name || ""}>
+                      {f.name || "Untitled"}
+                    </div>
+                    <div className="sx-card-meta">
+                      {[folderName, reason].filter(Boolean).join(" · ")}
+                    </div>
+                    {showOcrText && getDescriptionSnippet(f) ? (
+                      <p className="sx-card-snippet">{getDescriptionSnippet(f)}</p>
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-
-            <hr />
-
-            <label>What are you looking for?</label>
-            <input
-              className={`sp-input ${showRequiredHints && !hasQuery ? "is-required" : ""}`}
-              value={query}
-              disabled={loading}
-              placeholder="Type what you want to find"
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (showRequiredHints) setShowRequiredHints(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") runSearch();
-              }}
-            />
-            <div className="suggestion-wrap">
-              <span className="suggestion-label">Try these suggestions:</span>
-              <div className="suggestion-chips">
-                {querySuggestionChips.map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    className="suggestion-chip"
-                    disabled={loading}
-                    onClick={() => applyQuerySuggestion(chip)}
-                  >
-                    {chip}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="sx-empty">
+            <span className="sx-empty-icon">
+              <Icon name={!selectedFolders.length ? "folder" : hasSearched ? "search" : "logo"} size={26} />
+            </span>
+            {!selectedFolders.length ? (
+              <>
+                <h2>Add a folder to start</h2>
+                <p>Choose Screenshots, Desktop or any folder. Everything inside it gets indexed so you can search it.</p>
+                <button type="button" className="sx-primary-btn" onClick={pickFolderElectron} disabled={isIndexing}>
+                  <Icon name="plus" size={16} />
+                  Add folder
+                </button>
+              </>
+            ) : hasSearched ? (
+              <>
+                <h2>No matches</h2>
+                <p>Try fewer or different words, switch to All, or reset the filters.</p>
+                {filtersActive || activeKind !== "all" ? (
+                  <button type="button" className="sx-ghost-btn" onClick={resetFilters}>
+                    Reset filters
                   </button>
-                ))}
-              </div>
-            </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <h2>{isIndexing ? "Indexing your files" : "Search inside your screenshots"}</h2>
+                <p>
+                  {isIndexing
+                    ? "You can search as soon as indexing finishes."
+                    : "Type a word you remember seeing, or search with a picture."}
+                </p>
+                {querySuggestionChips.length ? (
+                  <div className="sx-suggestions">
+                    {querySuggestionChips.map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        className="sx-chip"
+                        disabled={loading}
+                        onClick={() => applyQuerySuggestion(chip)}
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        )}
 
-            <label>File kind</label>
-            <select
-              className={showRequiredHints && !isTypeChosen ? "is-required" : ""}
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                if (showRequiredHints) setShowRequiredHints(false);
-              }}
-              disabled={loading}
-            >
-              <option value="choose">Choose one</option>
-              <option value="all">All</option>
-              <option value="image">Image</option>
-              <option value="document">Document</option>
-            </select>
-
-            <label>File format</label>
-            <select
-              value={extFilter}
-              onChange={(e) => setExtFilter(e.target.value)}
-              disabled={loading}
-            >
-              <option value="all">All</option>
-              <option value="jpg">.jpg</option>
-              <option value="jpeg">.jpeg</option>
-              <option value="png">.png</option>
-              <option value="webp">.webp</option>
-              <option value="gif">.gif</option>
-              <option value="bmp">.bmp</option>
-              <option value="pdf">.pdf</option>
-              <option value="txt">.txt</option>
-              <option value="md">.md</option>
-              <option value="csv">.csv</option>
-              <option value="log">.log</option>
-            </select>
-
-            <label>Sort results</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              disabled={loading}
-            >
-              <option value="relevance">Relevance</option>
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="size_desc">Size: High to Low</option>
-              <option value="size_asc">Size: Low to High</option>
-            </select>
-
-            <label>Size (KB)</label>
-            <div className="size-row">
-              <input
-                placeholder="min"
-                value={sizeMin}
-                disabled={loading}
-                onChange={(e) => setSizeMin(e.target.value)}
-              />
-              <input
-                placeholder="max"
-                value={sizeMax}
-                disabled={loading}
-                onChange={(e) => setSizeMax(e.target.value)}
-              />
-            </div>
-
-            <label>Date</label>
-            <input
-              type="date"
-              value={dateFrom}
-              disabled={loading}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-            <input
-              type="date"
-              value={dateTo}
-              disabled={loading}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-
-            <button
-              className="btn-primary"
-              onClick={runSearch}
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="btn-loading">
-                  <span className="btn-spinner" aria-hidden="true" />
-                  Searching...
-                </span>
-              ) : (
-                "Search"
-              )}
+        {!showAllResults && results.length > resultLimit ? (
+          <div className="sx-more">
+            <button type="button" className="sx-ghost-btn" onClick={() => setShowAllResults(true)}>
+              Show all {results.length} results
             </button>
-            {showRequiredHints && (!hasQuery || !isTypeChosen) ? (
-              <div className="required-hint">
-                Please fill: what to find and file kind.
-              </div>
+          </div>
+        ) : null}
+      </main>
+
+      {selected ? (
+        <aside className="sx-preview" aria-label="Preview">
+          <div className="sx-preview-head">
+            <h2 title={selected.name || ""}>{selected.name || "Untitled"}</h2>
+            <button type="button" className="sb-icon-btn" aria-label="Close preview" onClick={() => setSelected(null)}>
+              <Icon name="close" size={17} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="sx-preview-image"
+            onClick={() => openLargePreview(selected)}
+            title="Open large preview"
+          >
+            <img
+              src={getFullImageSrc(selected)}
+              alt={selected.name || "Preview"}
+              onError={(e) => {
+                e.currentTarget.src = getDocumentIcon(selected, true);
+              }}
+            />
+            <span className="sx-expand">
+              <Icon name="expand" size={14} />
+            </span>
+          </button>
+
+          <div className="sx-meta">
+            {selectedFolderOfFile ? (
+              <span>
+                <Icon name="folder" size={14} />
+                {selectedFolderOfFile}
+              </span>
+            ) : null}
+            {selected.sizeKB ? <span>{selected.sizeKB} KB</span> : null}
+            {matchReason(selected) ? <span className="sx-meta-tag">{matchReason(selected)}</span> : null}
+          </div>
+
+          {showOcrText ? (
+            <div className="sx-text-found">
+              <div className="sx-label">Text found</div>
+              <p>{getMeaningfulDescription(selected, { short: true }) || "No text found in this file."}</p>
+            </div>
+          ) : null}
+
+          <div className="sx-actions">
+            <button type="button" className="sx-primary-btn" onClick={() => handleOpenFile(selected)}>
+              <Icon name="open" size={16} />
+              Open file
+            </button>
+            <button type="button" className="sx-ghost-btn" onClick={() => handleSaveItem(selected)}>
+              <Icon name="star" size={16} />
+              Save
+            </button>
+            <button type="button" className="sx-ghost-btn" onClick={() => handleOpenOriginal(selected)}>
+              <Icon name="folder" size={16} />
+              Show in folder
+            </button>
+            <button type="button" className="sx-ghost-btn" onClick={() => openLargePreview(selected)}>
+              <Icon name="message" size={16} />
+              Ask about it
+            </button>
+          </div>
+
+          <div className="sx-actions-row">
+            <button type="button" className="sx-icon-text" onClick={() => handleCopyDescription(selected)}>
+              <Icon name="copy" size={14} />
+              Copy text
+            </button>
+            <button type="button" className="sx-icon-text" onClick={() => handleCopyPath(selected)}>
+              <Icon name="copy" size={14} />
+              Copy location
+            </button>
+            <button type="button" className="sx-icon-text" onClick={() => handleReOcrSelected(selected)}>
+              <Icon name="refresh" size={14} />
+              {ocrButtonLabel}
+            </button>
+            {selected._dupCount > 1 ? (
+              <button type="button" className="sx-icon-text is-danger" onClick={() => handleDeleteFile(selected)}>
+                <Icon name="trash" size={14} />
+                Remove copy
+              </button>
             ) : null}
           </div>
         </aside>
+      ) : null}
 
-        <main className="sp-center">
-          <div className="results-header">
-            <h3>Best Matches</h3>
-            <div className="results-controls">
-              <label>
-                Show
-                <select
-                  value={resultLimit}
-                  onChange={(e) => setResultLimit(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={40}>40</option>
-                  <option value={60}>60</option>
-                </select>
-                results
-              </label>
-              <button
-                className="btn-outline"
-                type="button"
-                onClick={() => setShowAllResults((v) => !v)}
-              >
-                {showAllResults ? "Show Limited" : "Show All"}
-              </button>
-              <div className="results-count">
-                Results: <strong>{stats.count}</strong>
-              </div>
-            </div>
-          </div>
-          <div className="top5-list">
-            {(showAllResults ? results : results.slice(0, resultLimit)).map((f) => (
-              <div
-                key={f.path || f._id}
-                className="top5-card"
-                onClick={() => openLargePreview(f)}
-              >
-                <img
-                  src={getImageSrc(f)}
-                  alt={f.name || "preview"}
-                  onError={(e) => {
-                    e.currentTarget.src = getDocumentIcon(f);
-                  }}
-                />
-                <div className="top5-content">
-                  <strong>{f.name || "Untitled"}</strong>
-                  {f._dupCount > 1 ? (
-                    <span className="dup-badge">Copy ×{f._dupCount}</span>
-                  ) : null}
-                  {showOcrText ? <p>{getDescriptionSnippet(f)}...</p> : null}
-                </div>
-              </div>
-            ))}
-            {!results.length ? (
-              <div className="empty-state">
-                {canSearch
-                  ? "No matching results yet."
-                  : "Choose a folder and prepare files to see results."}
-              </div>
-            ) : null}
-          </div>
-        </main>
+      <div className="app-toast-wrap" aria-live="polite">
+        {actionMessage && !showPreviewModal ? <div className="app-toast">{actionMessage}</div> : null}
       </div>
 
       <Modal

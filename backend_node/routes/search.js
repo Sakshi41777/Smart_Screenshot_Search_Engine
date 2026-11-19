@@ -7,6 +7,8 @@ const axios = require("axios");
 const IndexedFile = require("../models/IndexedFile");
 const { sendProgress } = require("./searchProgress");
 const { extractTextSafe } = require("../services/ocr");
+const os = require("os");
+const { dHash, hashSimilarity } = require("../services/phash");
 const { requireDb } = require("../services/db");
 const {
   heuristicTagsForPath,
@@ -16,7 +18,10 @@ const {
 } = require("../services/ml");
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"]);
 const DOC_EXTS = new Set([
@@ -94,18 +99,50 @@ function humanSize(bytes) {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
-function walkFolder(rootFolder, out = []) {
-  try {
-    for (const entry of fs.readdirSync(rootFolder, { withFileTypes: true })) {
-      if (indexState.cancelRequested) break;
-      const entryPath = path.join(rootFolder, entry.name);
+// Folders that never contain the user's own screenshots/documents. Skipping them
+// keeps "index my whole Desktop / Documents / drive" fast and free of noise.
+const SKIP_DIR_NAMES = new Set([
+  "node_modules", ".git", ".svn", ".hg", ".venv", "venv", "env", "__pycache__",
+  ".next", ".nuxt", ".cache", ".gradle", ".idea", ".vscode", "bower_components",
+  "appdata", "application data", "$recycle.bin", "system volume information",
+  "windows", "program files", "program files (x86)", "programdata", "recovery",
+  "$windows.~bt", "$windows.~ws", "msocache", "perflogs",
+]);
+
+function shouldSkipDir(name = "") {
+  const lower = String(name || "").toLowerCase();
+  if (!lower) return true;
+  if (SKIP_DIR_NAMES.has(lower)) return true;
+  // Hidden/system folders like .config, .npm, $SysReset
+  return lower.startsWith(".") || lower.startsWith("$");
+}
+
+// Walks every subfolder of rootFolder (any depth) and collects supported files.
+// Async so a huge folder or a whole drive never freezes the backend.
+async function walkFolder(rootFolder, out = [], onProgress = null) {
+  const stack = [rootFolder];
+  let visitedDirs = 0;
+  while (stack.length) {
+    if (indexState.cancelRequested) break;
+    const dir = stack.pop();
+    let entries = [];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      continue; // no permission / vanished: skip quietly
+    }
+    visitedDirs += 1;
+    for (const entry of entries) {
+      const entryPath = path.join(dir, entry.name);
+      // Symlinks/junctions are not followed (avoids loops like "My Music").
       if (entry.isDirectory()) {
-        walkFolder(entryPath, out);
-      } else if (entry.isFile() && isSupportedExt(path.extname(entryPath).toLowerCase())) {
+        if (!shouldSkipDir(entry.name)) stack.push(entryPath);
+      } else if (entry.isFile() && isSupportedExt(path.extname(entry.name).toLowerCase())) {
         out.push(entryPath);
       }
     }
-  } catch {}
+    if (onProgress && visitedDirs % 200 === 0) onProgress(out.length, visitedDirs);
+  }
   return out;
 }
 
@@ -148,7 +185,8 @@ function folderScopeFilter(scopeFolders = []) {
   const escaped = folders.map((folder) =>
     normalizePathKey(folder).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   );
-  return { pathKey: { $regex: `^(${escaped.join("|")})` } };
+  // Folder itself or anything below it, but not a sibling like "Desktop-old".
+  return { pathKey: { $regex: `^(${escaped.join("|")})([\\\\/]|$)` } };
 }
 
 function parseJsonArray(raw, fallback = []) {
@@ -431,6 +469,7 @@ async function upsertIndexedFile(filePath) {
   }
 
   const finalText = await extractTextSafe(filePath);
+  const perceptualHash = isImage ? await dHash(filePath) : null;
   const sizeKB = Math.max(1, Math.round(st.size / 1024));
   const hash = fileHashSafe(filePath);
 
@@ -450,6 +489,7 @@ async function upsertIndexedFile(filePath) {
     tags: heuristicTagsForPath(filePath),
     fileHash: hash,
     imageHash: isImage ? hash : null,
+    perceptualHash,
   };
 
   const doc = await IndexedFile.findOneAndUpdate(
@@ -464,7 +504,11 @@ async function upsertIndexedFile(filePath) {
 async function runIndexing(folders) {
   try {
     const files = [];
-    for (const folder of folders) walkFolder(folder, files);
+    for (const folder of folders) {
+      await walkFolder(folder, files, (found) => {
+        sendProgress(`Scanning folders... ${found} files found`, "working");
+      });
+    }
     const total = files.length;
     sendProgress(`0 / ${total}`, "working");
 
@@ -562,24 +606,93 @@ router.post("/share/public-link", (req, res) => {
   res.json({ ok: true, url: `smartshot://shared/${token}` });
 });
 
+const IMAGE_MATCH_MIN_VISUAL = 0.8; // dHash similarity; unrelated images sit near 0.5
+const IMAGE_MATCH_LAZY_HASH_LIMIT = 600; // hashes computed per request for older rows
+
+function textTokens(text = "") {
+  const words = String(text || "")
+    .toLowerCase()
+    .match(/[a-z0-9][a-z0-9@._-]{2,}/g) || [];
+  return [...new Set(words)].slice(0, 40);
+}
+
+function textOverlap(tokens = [], haystack = "") {
+  if (!tokens.length) return 0;
+  const hay = String(haystack || "").toLowerCase();
+  if (!hay) return 0;
+  let hits = 0;
+  for (const t of tokens) if (hay.includes(t)) hits += 1;
+  return hits / tokens.length;
+}
+
+async function ocrUploadedImage(file) {
+  const ext = path.extname(String(file?.originalname || "")).toLowerCase() || ".png";
+  const tmp = path.join(os.tmpdir(), `smartshot-query-${Date.now()}${ext}`);
+  try {
+    fs.writeFileSync(tmp, file.buffer);
+    return await extractTextSafe(tmp);
+  } catch {
+    return "";
+  } finally {
+    try { fs.unlinkSync(tmp); } catch {}
+  }
+}
+
+// Search by image: finds the same/similar picture (perceptual hash) AND
+// screenshots containing the same text (OCR), so a cropped region also works.
 router.post("/image-match", upload.single("image"), async (req, res) => {
-  const filter = { ...folderScopeFilter(parseJsonArray(req.body?.scopeFolders)) };
-  const rows = await IndexedFile.find({ ...filter, type: "image" })
+  if (!req.file?.buffer?.length) {
+    return res.status(400).json({ ok: false, error: "Please choose an image to search with." });
+  }
+
+  const [queryHash, queryText] = await Promise.all([
+    dHash(req.file.buffer),
+    ocrUploadedImage(req.file),
+  ]);
+  const tokens = textTokens(queryText);
+
+  const filter = { ...folderScopeFilter(parseJsonArray(req.body?.scopeFolders)), type: "image" };
+  const rows = await IndexedFile.find(filter, { semanticVector: 0, imageVector: 0 })
     .sort({ updatedAt: -1 })
-    .limit(250)
+    .limit(20000)
     .lean();
 
-  const scores = await requestVisualScores(rows.map((row) => row.path));
-  const files = rows
-    .map((row) => {
-      const scoreKey = normalizePathKey(row.path).replace(/\\/g, "/");
-      const visual = Number(scores[scoreKey] || scores[row.path] || 0.6);
-      const score = combineScores(visual, tagScoreFromTags(row.tags || []));
-      return mapIndexedFile(row, score);
-    })
-    .sort((a, b) => b.score - a.score);
+  // Rows indexed before this feature have no perceptual hash yet: fill some in now.
+  if (queryHash) {
+    const missing = rows.filter((r) => !r.perceptualHash).slice(0, IMAGE_MATCH_LAZY_HASH_LIMIT);
+    const updates = [];
+    for (let i = 0; i < missing.length; i += 8) {
+      const batch = missing.slice(i, i + 8);
+      const hashes = await Promise.all(batch.map((r) => dHash(r.path)));
+      batch.forEach((row, j) => {
+        if (!hashes[j]) return;
+        row.perceptualHash = hashes[j];
+        updates.push({
+          updateOne: { filter: { _id: row._id }, update: { $set: { perceptualHash: hashes[j] } } },
+        });
+      });
+    }
+    if (updates.length) {
+      try { await IndexedFile.bulkWrite(updates, { ordered: false }); } catch {}
+    }
+  }
 
-  res.json({ ok: true, files });
+  const files = [];
+  for (const row of rows) {
+    const visual = queryHash ? hashSimilarity(queryHash, row.perceptualHash) : 0;
+    const visualScore = visual >= IMAGE_MATCH_MIN_VISUAL ? visual : 0;
+    const overlap = textOverlap(tokens, row.extractedText || row.extractText || "");
+    const textScore = tokens.length >= 2 && overlap >= 0.4 ? overlap * 0.95 : 0;
+    const score = Math.max(visualScore, textScore);
+    if (score > 0) {
+      const mapped = mapIndexedFile(row, Number(score.toFixed(4)));
+      mapped.matchType = visualScore >= textScore ? "visual" : "text";
+      files.push(mapped);
+    }
+  }
+  files.sort((a, b) => b.score - a.score);
+
+  res.json({ ok: true, files: files.slice(0, 200), queryText: queryText.slice(0, 300) });
 });
 
 router.post("/reset-app", async (req, res) => {
@@ -593,14 +706,83 @@ router.post("/reset-app", async (req, res) => {
 
 router.post("/", async (req, res) => {
   const query = String(req.body?.query || "").trim();
-  const filter = folderScopeFilter(req.body?.scopeFolders);
-  const rows = await IndexedFile.find(filter).sort({ updatedAt: -1 }).limit(1000).lean();
+  const scope = folderScopeFilter(req.body?.scopeFolders);
+  const filter = { ...scope };
+  const tokens = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .filter(Boolean)
+    .slice(0, 8);
+  if (tokens.length) {
+    // Let MongoDB find every matching file in the selected folder(s) and all
+    // subfolders, instead of scoring only the most recently indexed rows.
+    const anyToken = tokens.join("|");
+    filter.$or = [
+      { name: { $regex: anyToken, $options: "i" } },
+      { extractedText: { $regex: anyToken, $options: "i" } },
+      { pathKey: { $regex: anyToken, $options: "i" } },
+      { tags: { $regex: anyToken, $options: "i" } },
+    ];
+  }
+  const rows = await IndexedFile.find(filter, { semanticVector: 0, imageVector: 0 })
+    .sort({ updatedAt: -1 })
+    .limit(tokens.length ? 20000 : 1000)
+    .lean();
   const files = rows
     .map((row) => mapIndexedFile(row, scoreDoc(row, query)))
     .filter((file) => !query || file.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 300);
   res.json({ ok: true, files });
+});
+
+function pathIsJunk(filePath = "") {
+  return String(filePath || "")
+    .split(/[\\/]+/)
+    .slice(0, -1)
+    .some((part) => part && shouldSkipDir(part));
+}
+
+function pathAllowed(filePath = "", allowedFolders = []) {
+  const folders = normalizeFolders(allowedFolders);
+  if (!folders.length) return true;
+  const key = normalizePathKey(filePath);
+  return folders.some((f) => {
+    const root = normalizePathKey(f);
+    return key === root || key.startsWith(root + path.sep) || key.startsWith(root + "/");
+  });
+}
+
+// Called by the desktop app's folder watcher when a file is added or changed.
+router.post("/sync-file", async (req, res) => {
+  const filePath = String(req.body?.path || "").trim();
+  if (!filePath) return res.status(400).json({ ok: false, error: "Path is required." });
+  const ext = path.extname(filePath).toLowerCase();
+  if (!isSupportedExt(ext) || pathIsJunk(filePath) || !pathAllowed(filePath, req.body?.allowedFolders)) {
+    return res.json({ ok: true, skipped: true });
+  }
+  try {
+    const st = fs.statSync(filePath);
+    if (!st.isFile()) return res.json({ ok: true, skipped: true });
+    const { changed } = await upsertIndexedFile(filePath);
+    return res.json({ ok: true, changed });
+  } catch (err) {
+    // File still being written / locked: the watcher retries on non-2xx.
+    return res.status(503).json({ ok: false, error: err?.message || "Could not index file yet." });
+  }
+});
+
+// Called by the watcher when a file or folder is deleted or renamed away.
+router.post("/sync-delete", async (req, res) => {
+  const filePath = String(req.body?.path || "").trim();
+  if (!filePath) return res.status(400).json({ ok: false, error: "Path is required." });
+  const key = normalizePathKey(filePath);
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const result = await IndexedFile.deleteMany({
+    $or: [{ pathKey: key }, { pathKey: { $regex: `^${escaped}[\\\\/]` } }],
+  });
+  return res.json({ ok: true, deleted: Number(result?.deletedCount || 0) });
 });
 
 router.all("*", (req, res) => {

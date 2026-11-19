@@ -2,6 +2,7 @@ import React, { memo, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import TopNav from "../components/TopNav";
+import Icon from "../components/Icon";
 import "./Saved.css";
 
 function getItemIdValue(it, fallbackIndex = -1) {
@@ -46,12 +47,12 @@ function getDocumentThumbDataUri(label = "DOC") {
   const safeLabel = String(label || "DOC").toUpperCase().slice(0, 4);
   return `data:image/svg+xml;utf8,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
-  <rect width="320" height="200" rx="14" fill="#e2e8f0"/>
-  <rect x="18" y="18" width="284" height="164" rx="12" fill="#cbd5e1"/>
-  <rect x="30" y="56" width="72" height="88" rx="10" fill="#2563eb"/>
+  <rect width="320" height="200" rx="14" fill="#f4e4d8"/>
+  <rect x="18" y="18" width="284" height="164" rx="12" fill="#dfd2c4"/>
+  <rect x="30" y="56" width="72" height="88" rx="10" fill="#91643e"/>
   <text x="66" y="106" text-anchor="middle" fill="#fff" font-size="21" font-family="Segoe UI, Arial" font-weight="700">${safeLabel}</text>
-  <text x="122" y="84" fill="#0f172a" font-size="22" font-family="Segoe UI, Arial" font-weight="700">Document Preview</text>
-  <text x="122" y="112" fill="#64748b" font-size="13" font-family="Segoe UI, Arial">Open folder to view original file.</text>
+  <text x="122" y="84" fill="#1f150d" font-size="22" font-family="Segoe UI, Arial" font-weight="700">Document Preview</text>
+  <text x="122" y="112" fill="#896e54" font-size="13" font-family="Segoe UI, Arial">Open folder to view original file.</text>
 </svg>
 `)}`;
 }
@@ -289,141 +290,127 @@ export default function Saved({ user, onSignOut }) {
     }
   }
 
+  async function openFile(it) {
+    if (!it?.path) return;
+    if (window.electronAPI?.openPath) {
+      try {
+        const result = await window.electronAPI.openPath(it.path);
+        if (!result) return;
+      } catch (e) {
+        console.error("Could not open file", e);
+      }
+    }
+    openItem(it);
+  }
+
+  function parentFolder(path = "") {
+    const parts = String(path || "").split(/[\\/]/).filter(Boolean);
+    return parts.length > 1 ? parts[parts.length - 2] : "";
+  }
+
   return (
     <div className="sp-root">
       <TopNav user={user} onSignOut={onSignOut} />
 
-      <div style={{ marginTop: 12 }} />
-
-      <div className="sp-body" style={{ gridTemplateColumns: "1fr" }}>
-        <main style={{ gridColumn: "1 / -1" }}>
-          <div className="sp-card">
-            <h2>Saved Items</h2>
-
-            {isGuest ? (
-              <div>
-                <p className="guest-banner">
-                  Saved items are available after sign in. Sign in to keep
-                  important files and open them quickly.
-                </p>
-                <div style={{ marginTop: 12 }}>
-                  <button className="btn-primary" onClick={handleSignIn}>
-                    Sign in / Register
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {!loading && !error && items.length > 0 ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                    <button className="btn-outline" onClick={toggleSelectAll}>
-                      {selectedIds.size === items.length ? "Clear Selection" : "Select All"}
-                    </button>
-                    <button
-                      className="btn-outline"
-                      onClick={removeSelected}
-                      disabled={selectedIds.size === 0}
-                    >
-                      Remove Selected ({selectedIds.size})
-                    </button>
-                    <button className="btn-reset" onClick={clearAllSaved}>
-                      Remove All
-                    </button>
-                  </div>
-                ) : null}
-
-                {loading && items.length === 0 && <div>Loading...</div>}
-                {error && <div style={{ color: "#b92222" }}>{error}</div>}
-
-                {!loading && !error && (
-                  <>
-                    {items.length === 0 ? (
-                      <div className="no-results" style={{ padding: 18 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                          No saved items yet.
-                        </div>
-                        <div style={{ color: "var(--muted)" }}>
-                          Open Search, find a file, and click "Save Item" to keep it here.
-                        </div>
-                        <div style={{ marginTop: 12 }}>
-                          <button
-                            className="btn-primary"
-                            onClick={() => navigate("/search")}
-                          >
-                            Go to Search
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: "grid", gap: 12 }}>
-                        {items.map((it, idx) => {
-                          const id = getItemId(it, idx);
-                          const displayName =
-                            it.name ||
-                            (it.path
-                              ? it.path.split(/[\\/]/).pop()
-                              : "Saved item");
-
-                          const metaParts = [];
-                          if (it.type) metaParts.push(it.type);
-                          if (it.size) metaParts.push(it.size);
-
-                          return (
-                            <div
-                              key={id}
-                              className="result-row"
-                              style={{ alignItems: "center" }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(id)}
-                                onChange={() => toggleSelect(id)}
-                            aria-label="Select saved item"
-                              />
-                              <div className="result-left">
-                                <SavedThumbnail
-                                  item={it}
-                                  alt={displayName}
-                                />
-                              </div>
-
-                              <div style={{ flex: 1, paddingLeft: 8 }}>
-                                <div style={{ fontWeight: 700 }}>
-                                  {displayName}
-                                </div>
-                                {metaParts.length > 0 && (
-                                  <div style={{ color: "var(--muted)" }}>
-                                    {metaParts.join(" • ")}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button
-                                  className="btn-outline"
-                                  onClick={() => openItem(it)}
-                                >
-                                  Open File
-                                </button>
-                                <button
-                                  className="btn-reset"
-                                  onClick={() => handleRemove(it)}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+      <main className="pg-main">
+        <header className="pg-head">
+          <div>
+            <h1>Saved</h1>
+            <p>Files you starred while searching. Open them or show them in their folder.</p>
           </div>
-        </main>
-      </div>
+          {!isGuest && !loading && !error && items.length > 0 ? (
+            <div className="pg-head-actions">
+              <button type="button" className="sx-ghost-btn" onClick={toggleSelectAll}>
+                {selectedIds.size === items.length ? "Clear selection" : "Select all"}
+              </button>
+              {selectedIds.size > 0 ? (
+                <button type="button" className="sx-ghost-btn" onClick={removeSelected}>
+                  <Icon name="trash" size={15} />
+                  Remove {selectedIds.size}
+                </button>
+              ) : null}
+              <button type="button" className="pg-danger-btn" onClick={clearAllSaved}>
+                Remove all
+              </button>
+            </div>
+          ) : null}
+        </header>
+
+        {isGuest ? (
+          <div className="sx-empty">
+            <span className="sx-empty-icon"><Icon name="star" size={26} /></span>
+            <h2>Sign in to save files</h2>
+            <p>Guests can search, but saved files are kept only for signed-in accounts.</p>
+            <button type="button" className="sx-primary-btn" onClick={handleSignIn}>Sign in</button>
+          </div>
+        ) : loading && items.length === 0 ? (
+          <div className="pg-loading">Loading your saved files…</div>
+        ) : error ? (
+          <div className="sp-alert" role="alert">
+            <span className="sp-alert-icon" aria-hidden="true">!</span>
+            {error}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="sx-empty">
+            <span className="sx-empty-icon"><Icon name="star" size={26} /></span>
+            <h2>Nothing saved yet</h2>
+            <p>Open a result in Search and press Save to keep it here.</p>
+            <button type="button" className="sx-primary-btn" onClick={() => navigate("/search")}>
+              <Icon name="search" size={16} />
+              Go to search
+            </button>
+          </div>
+        ) : (
+          <div className="sx-grid">
+            {items.map((it, idx) => {
+              const id = getItemId(it, idx);
+              const displayName = it.name || (it.path ? it.path.split(/[\\/]/).pop() : "Saved item");
+              const folder = parentFolder(it.path);
+              const checked = selectedIds.has(id);
+              return (
+                <div key={id} className={`sx-card sv-card ${checked ? "is-selected" : ""}`}>
+                  <div className="sx-thumb" onDoubleClick={() => openFile(it)}>
+                    <SavedThumbnail item={it} alt="" />
+                    <label className="sv-check" title="Select">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSelect(id)}
+                        aria-label={`Select ${displayName}`}
+                      />
+                    </label>
+                  </div>
+                  <div className="sx-card-body">
+                    <div className="sx-card-name" title={displayName}>{displayName}</div>
+                    <div className="sx-card-meta">
+                      {[folder, it.size].filter(Boolean).join(" · ") || (it.type || "File")}
+                    </div>
+                    <div className="sv-actions">
+                      <button type="button" className="sx-icon-text" onClick={() => openFile(it)}>
+                        <Icon name="open" size={14} />
+                        Open
+                      </button>
+                      <button type="button" className="sx-icon-text" onClick={() => openItem(it)}>
+                        <Icon name="folder" size={14} />
+                        Show in folder
+                      </button>
+                      <button
+                        type="button"
+                        className="sb-icon-btn sv-remove"
+                        aria-label={`Remove ${displayName}`}
+                        title="Remove"
+                        onClick={() => handleRemove(it)}
+                      >
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

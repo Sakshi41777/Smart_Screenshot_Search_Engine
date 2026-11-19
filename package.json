@@ -14,14 +14,14 @@
     "start": "npm run client-build && cross-env NODE_ENV=production concurrently \"cd backend_node && npm start\" \"wait-on http://127.0.0.1:5001/health && electron .\"",
     "pack": "npm run client-build && npm run backend-install && electron-builder --dir",
     "dist": "npm run client-install && npm run client-build && npm run backend-install && npm run fetch-mongod && electron-builder --win nsis --publish never",
-    "backend-install": "cd backend_node && npm install --omit=dev",
+    "backend-install": "cd backend_node && npm install",
     "fetch-mongod": "node scripts/fetch-mongod.js"
   },
   "devDependencies": {
     "concurrently": "^7.0.0",
     "cross-env": "^7.0.0",
-    "electron": "^25.0.0",
-    "electron-builder": "^24.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
     "wait-on": "^7.0.0"
   },
   "build": {

@@ -1,1 +1,62 @@
-html, body, #root { height:100%; margin:0; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background:#f6f8fb; }
+:root {
+  --app-bg: #f6efe6;
+  --surface: #fffdf9;
+  --surface-soft: #faf4ec;
+  --beige: #f1e4d3;
+  --beige-strong: #e8d5bd;
+  --line: #eadbc8;
+  --line-strong: #d9c2a5;
+  --brown: #91643e;
+  --brown-dark: #7a5334;
+  --brown-deep: #5c3d24;
+  --amber: #b9772a;
+  --ink: #2b2119;
+  --ink-soft: #5f4a38;
+  --ink-muted: #7d6653;
+  --danger: #a3362a;
+  --danger-bg: #fbefe9;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-card: 0 1px 2px rgba(60, 40, 20, 0.05), 0 6px 18px rgba(60, 40, 20, 0.06);
+  --sidebar-w: 236px;
+  --preview-w: 352px;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: "Segoe UI Variable Text", "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--app-bg);
+  color: var(--ink);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.app-boot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
+  color: var(--ink-soft);
+  font-size: 15px;
+  text-align: center;
+}
+
+.app-boot-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--beige-strong);
+  border-top-color: var(--brown);
+  border-radius: 50%;
+  animation: app-spin 0.8s linear infinite;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}

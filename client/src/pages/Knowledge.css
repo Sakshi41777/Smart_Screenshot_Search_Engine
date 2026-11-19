@@ -5,13 +5,13 @@
 
 .k-subtitle {
   margin: 0;
-  color: #475569;
+  color: #65503a;
 }
 
 .k-section {
-  border: 1px solid #dbeafe;
+  border: 1px solid #f5e6db;
   border-radius: 10px;
-  background: #f8fbff;
+  background: #fdfaf8;
   padding: 14px;
   display: grid;
   gap: 10px;
@@ -24,7 +24,7 @@
 .k-steps {
   display: grid;
   gap: 6px;
-  color: #0f172a;
+  color: #1f150d;
   font-size: 14px;
 }
 
@@ -47,10 +47,10 @@
 .k-chip {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #edd4bf;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #faf4ef;
+  color: #7a5334;
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 600;

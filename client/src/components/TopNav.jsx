@@ -1,89 +1,69 @@
 // client/src/components/TopNav.jsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// App sidebar (kept the TopNav name so every page picks it up unchanged).
+// Pages can pass extra sidebar content as children (e.g. the folder list).
+// No accounts: the bottom shows the optional display name (set in Settings).
+import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import Icon from "./Icon";
+import { useDisplayName } from "../displayName";
 import "./TopNav.css";
 
-export default function TopNav({ user, onSignOut }) {
+const NAV_ITEMS = [
+  { path: "/search", label: "Search", icon: "search" },
+  { path: "/saved", label: "Saved", icon: "star" },
+  { path: "/history", label: "History", icon: "clock" },
+  { path: "/profile", label: "Settings", icon: "settings" },
+];
+
+export default function TopNav({ children }) {
   const navigate = useNavigate();
-  const [notice, setNotice] = useState(null);
-
-  const isGuest = Boolean(user?.guest === true);
-  const isAuthed = Boolean(user && !isGuest);
-
-  function showNotice(msg, ms = 3000) {
-    setNotice(msg);
-    setTimeout(() => setNotice(null), ms);
-  }
-
-  function handleHome() {
-    navigate("/search");
-  }
-
-  function handleSaved() {
-    if (!isAuthed) {
-      showNotice("Please sign in to see your saved items.");
-      return;
-    }
-    navigate("/saved");
-  }
-
-  function handleHistory() {
-    if (!isAuthed) {
-      showNotice("Please sign in to see your past searches.");
-      return;
-    }
-    navigate("/history");
-  }
-
-  function handleProfile() {
-    if (!isAuthed) {
-      showNotice("Please sign in to open your profile.");
-      return;
-    }
-    navigate("/profile");
-  }
-
-  function handleSignIn() {
-    navigate("/signin");
-  }
-
-  function handleSignOutClick() {
-    onSignOut?.();
-  }
-
-  const rawName = isGuest ? "Guest" : user?.name || user?.email || "User";
-  const cleanName = String(rawName || "User").split("@")[0];
-  const greeting = `Hello, ${cleanName}`;
+  const location = useLocation();
+  const name = useDisplayName();
 
   return (
-    <>
-      <div className="sp-topnav" role="navigation">
-        <div className="sp-nav-left">
-          <button className="nav-link" onClick={handleHome}>Home</button>
-          <button className="nav-link" onClick={handleSaved}>Saved</button>
-          <button className="nav-link" onClick={handleHistory}>History</button>
-          <button className="nav-link" onClick={handleProfile}>Profile</button>
-        </div>
-
-        <div className="sp-nav-right">
-          {isGuest && <span className="guest-pill">Guest</span>}
-          {!isGuest && <span className="nav-user">{greeting}</span>}
-
-          {!isAuthed ? (
-            <button className="btn-primary" onClick={handleSignIn}>
-              Sign in
-            </button>
-          ) : (
-            <button className="btn-reset" onClick={handleSignOutClick}>
-              Log out
-            </button>
-          )}
-        </div>
+    <nav className="sb-sidebar" aria-label="Main">
+      <div className="sb-brand">
+        <span className="sb-brand-mark">
+          <Icon name="logo" size={20} />
+        </span>
+        <span className="sb-brand-name">SmartShot</span>
       </div>
 
-      <div className="sp-notice-wrap" aria-live="polite">
-        {notice && <div className="sp-notice">{notice}</div>}
+      <div className="sb-nav">
+        {NAV_ITEMS.map((item) => {
+          const active = location.pathname.startsWith(item.path);
+          return (
+            <button
+              key={item.path}
+              type="button"
+              className={`sb-nav-item ${active ? "is-active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              onClick={() => navigate(item.path)}
+            >
+              <Icon name={item.icon} size={18} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
-    </>
+
+      {children ? <div className="sb-extra">{children}</div> : <div className="sb-spacer" />}
+
+      <button
+        type="button"
+        className="sb-account"
+        onClick={() => navigate("/profile")}
+        title={name ? "Change your name in Settings" : "Add your name (optional)"}
+      >
+        <span className="sb-avatar" aria-hidden="true">
+          {name ? name.charAt(0).toUpperCase() : <Icon name="user" size={16} />}
+        </span>
+        <span className="sb-account-text">
+          <span className="sb-account-name">{name || "Add your name"}</span>
+          <span className="sb-account-sub">{name ? "On this computer" : "Optional"}</span>
+        </span>
+        <Icon name="edit" size={15} className="sb-account-edit" />
+      </button>
+    </nav>
   );
 }

@@ -3,7 +3,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,10 +13,10 @@
 .modal-shell {
   width: 100%;
   max-width: 720px;
-  background: #fff;
+  background: #fffdf9;
   border-radius: 8px;
   padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 80px); /* keep modal within viewport */
@@ -28,7 +28,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #f3f3f3;
+  border-bottom: 1px solid #f4f3f1;
   padding-bottom: 8px;
 }
 
@@ -47,7 +47,7 @@
 .modal-close {
   padding: 6px 10px;
   background: transparent;
-  border: 1px solid #ddd;
+  border: 1px solid #e1ddd8;
   border-radius: 6px;
   cursor: pointer;
 }

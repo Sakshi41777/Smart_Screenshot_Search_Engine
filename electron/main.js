@@ -492,6 +492,22 @@ function getPackagedBackendEnv() {
   }
   const env = {};
   if (!process.env.JWT_SECRET) env.JWT_SECRET = jwtSecret;
+
+  // Google sign-in for everyone who installs the app: the build bundles
+  // electron/google-oauth.json (a "Desktop app" OAuth client, git-ignored).
+  // Desktop OAuth clients are public clients; the flow is protected by PKCE.
+  try {
+    const oauthPath = path.join(__dirname, "google-oauth.json");
+    if (fs.existsSync(oauthPath)) {
+      const cfg = JSON.parse(fs.readFileSync(oauthPath, "utf8"));
+      if (cfg.clientId && !process.env.GOOGLE_CLIENT_ID) env.GOOGLE_CLIENT_ID = String(cfg.clientId);
+      if (cfg.clientSecret && !process.env.GOOGLE_OAUTH_CLIENT_SECRET) {
+        env.GOOGLE_OAUTH_CLIENT_SECRET = String(cfg.clientSecret);
+      }
+    }
+  } catch (err) {
+    writeMainLog("google-oauth.json could not be read", err && err.message);
+  }
   if (embeddedMongoUri && !process.env.MONGO_URI) env.MONGO_URI = embeddedMongoUri;
   return env;
 }
@@ -884,7 +900,12 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 1024,
+    minHeight: 640,
     icon: iconPath,
+    title: "Smart Screenshot Search Engine",
+    backgroundColor: "#f6efe6",
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -910,8 +931,8 @@ function createWindow() {
       mainWindow.webContents.on('did-fail-load', () => {
         console.error("[Electron] WebContents failed to load");
       });
-      mainWindow.webContents.on('crashed', () => {
-        console.error("[Electron] WebContents crashed");
+      mainWindow.webContents.on('render-process-gone', (_e, details) => {
+        console.error("[Electron] Renderer gone:", details && details.reason);
       });
     }
   } else {
