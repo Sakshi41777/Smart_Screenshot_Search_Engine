@@ -6,10 +6,116 @@ import TopNav from "../components/TopNav";
 import Modal from "../components/Modal";
 import InfoTip from "../components/InfoTip";
 import Icon from "../components/Icon";
+import Tour, { wasTourDone } from "../components/Tour";
 import { markNamePromptDone, setDisplayName, useDisplayName, wasNamePromptDone } from "../displayName";
 import "./SearchPage.css";
 import "react-image-crop/dist/ReactCrop.css";
 import { similarity } from "../search/fuzzy";
+
+// Folders that have finished indexing at least once on this computer.
+// Used to show the friendly "first time takes a few minutes" card only once per folder.
+const INDEXED_FOLDERS_KEY = "APP_INDEXED_FOLDERS";
+
+function folderKey(folder = "") {
+  return String(folder || "").trim().replace(/[\\/]+$/, "").toLowerCase();
+}
+
+function readIndexedFolders() {
+  try {
+    const list = JSON.parse(localStorage.getItem(INDEXED_FOLDERS_KEY) || "[]");
+    return new Set(Array.isArray(list) ? list : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markFoldersIndexed(folders = []) {
+  try {
+    const known = readIndexedFolders();
+    folders.forEach((f) => known.add(folderKey(f)));
+    localStorage.setItem(INDEXED_FOLDERS_KEY, JSON.stringify(Array.from(known)));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function hasNewFolder(folders = []) {
+  const known = readIndexedFolders();
+  return folders.some((f) => !known.has(folderKey(f)));
+}
+
+const TOUR_STEPS = [
+  {
+    id: "welcome",
+    badge: "👋",
+    title: "Welcome to SmartShot",
+    body:
+      "SmartShot reads the words inside your screenshots, photos, PDFs and documents, so you can find any of them by typing what you remember. Here's a quick look around. It takes about a minute.",
+  },
+  {
+    id: "folders",
+    target: '[data-tour="folders"]',
+    title: "1. Choose your folders",
+    body:
+      "Pick Screenshots, Desktop, Downloads or any folder. Everything inside it, including all subfolders, is included. Your files never leave your computer.",
+  },
+  {
+    id: "index",
+    target: '[data-tour="index"]',
+    title: "2. Watch the progress here",
+    body:
+      "The first time you add a folder, SmartShot reads every file once, which can take a few minutes. After that only new or changed files are read, so it's quick. You can stop it at any time.",
+  },
+  {
+    id: "search",
+    target: '[data-tour="search"]',
+    title: "3. Search by what you remember",
+    body:
+      "Type any word you saw: a name, an amount, an error message, an address. Press Enter to search. Small typos are fine.",
+  },
+  {
+    id: "image",
+    target: '[data-tour="image"]',
+    title: "4. Or search with a picture",
+    body:
+      "Have a photo or part of a screenshot? Use By image to find files that look like it or contain the same text. The camera button lets you snap something directly.",
+  },
+  {
+    id: "filters",
+    target: '[data-tour="filters"]',
+    title: "5. Narrow it down",
+    body:
+      "Use these chips to show only images, PDFs or documents. Open Filters to sort by date, size or file format.",
+  },
+  {
+    id: "results",
+    target: '[data-tour="results"]',
+    title: "6. Preview, open and ask",
+    body:
+      "Your results appear here. Click one to preview it on the right, where you can open it, copy its text, save it, or ask about it, like \"summarise this\" or \"what's the total?\". Double-click for a large view.",
+  },
+  {
+    id: "nav",
+    target: '[data-tour="nav-saved"], [data-tour="nav-history"]',
+    title: "7. Saved and History",
+    body:
+      "Files you save with the star appear in Saved. History keeps your recent searches so you can run them again with one click.",
+  },
+  {
+    id: "settings",
+    target: '[data-tour="nav-settings"]',
+    title: "8. Settings",
+    body:
+      "Add your name, turn background indexing on or off, or reset the app. Everything stays on this computer.",
+  },
+  {
+    id: "done",
+    target: '[data-tour="help"]',
+    title: "You're all set!",
+    body: "You can replay this tour any time from this ? button. Happy searching!",
+    doneLabel: "Start searching",
+  },
+];
 
 
 function getFileExt(file) {
@@ -466,6 +572,12 @@ export default function SearchPage({ user, onSignOut }) {
   const [indexError, setIndexError] = useState("");
   const [pendingSearchAfterIndex, setPendingSearchAfterIndex] = useState(false);
   const [showRequiredHints, setShowRequiredHints] = useState(false);
+  // Friendly card for a folder's first indexing: null | { phase: "working" | "done" }
+  const [firstRun, setFirstRun] = useState(null);
+  const [indexCounts, setIndexCounts] = useState({ done: 0, total: 0, found: 0 });
+  const indexingFoldersRef = useRef([]);
+  const [tourOpen, setTourOpen] = useState(false);
+  const handledTourKeyRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [pendingAutoRun, setPendingAutoRun] = useState(null);
@@ -1518,10 +1630,18 @@ export default function SearchPage({ user, onSignOut }) {
           setProgressPercent((prev) => Math.max(prev, 8));
         }
 
+        const found = data.message?.match(/Scanning folders\.\.\.\s*(\d+)\s*files found/i);
+        if (found) {
+          setIndexCounts((prev) => ({ ...prev, found: Number(found[1]) || prev.found }));
+        }
+
         const m = data.message?.match(/(\d+)\s*\/\s*(\d+)/);
         if (m) {
           const done = Number(m[1]);
           const total = Number(m[2]);
+          if (Number.isFinite(done) && Number.isFinite(total)) {
+            setIndexCounts((prev) => ({ ...prev, done, total }));
+          }
           if (Number.isFinite(done) && Number.isFinite(total) && total > 0) {
             const pct = Math.round((done / total) * 100);
             setProgressPercent(Math.max(0, Math.min(100, pct)));
@@ -1550,6 +1670,8 @@ export default function SearchPage({ user, onSignOut }) {
           setIndexReady(true);
           setIsIndexing(false);
           setIndexError("");
+          markFoldersIndexed(indexingFoldersRef.current);
+          setFirstRun((prev) => (prev ? { phase: "done" } : prev));
           es.close();
         } else if (data.stage === "canceling") {
           setProgressMessage("Stopping...");
@@ -1560,6 +1682,14 @@ export default function SearchPage({ user, onSignOut }) {
           setIsIndexing(false);
           setIndexReady(false);
           setIndexError("Setup stopped. You can choose another folder.");
+          setFirstRun(null);
+          es.close();
+        } else if (data.stage === "error") {
+          setIsIndexing(false);
+          setIndexReady(false);
+          setIndexError("We couldn't finish reading this folder. Please try again.");
+          setProgressMessage("Setup interrupted.");
+          setFirstRun(null);
           es.close();
         }
       } catch (err) {
@@ -1570,6 +1700,7 @@ export default function SearchPage({ user, onSignOut }) {
     es.onerror = () => {
       es.close();
       setIsIndexing(false);
+      setFirstRun(null);
       setIndexError("Progress disconnected. Please try again.");
       setProgressMessage("Setup interrupted.");
       setIndexEtaText("");
@@ -1589,6 +1720,9 @@ export default function SearchPage({ user, onSignOut }) {
       return false;
     }
     setSelectedFolders(sanitizedFolders);
+    indexingFoldersRef.current = sanitizedFolders;
+    setIndexCounts({ done: 0, total: 0, found: 0 });
+    setFirstRun(hasNewFolder(sanitizedFolders) ? { phase: "working" } : null);
     setIndexReady(false);
     setIsIndexing(true);
     setProgressPercent(4);
@@ -1613,6 +1747,7 @@ export default function SearchPage({ user, onSignOut }) {
       }
       setIsIndexing(false);
       setIndexReady(false);
+      setFirstRun(null);
       if (!silent) setIndexError("We could not prepare this folder.");
       setProgressMessage("Could not prepare files.");
       setIndexEtaText("");
@@ -1876,6 +2011,33 @@ export default function SearchPage({ user, onSignOut }) {
     }
   }, [cameraStream]);
 
+  // Hide the "All set" card a little while after indexing finishes.
+  useEffect(() => {
+    if (firstRun?.phase !== "done") return undefined;
+    const t = setTimeout(() => setFirstRun(null), 9000);
+    return () => clearTimeout(t);
+  }, [firstRun]);
+
+  // Guided tour: automatically the first time, and whenever "?" / "Take the tour" asks for it.
+  useEffect(() => {
+    if (wasTourDone()) return undefined;
+    const t = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const start = () => setTourOpen(true);
+    window.addEventListener("app:start-tour", start);
+    return () => window.removeEventListener("app:start-tour", start);
+  }, []);
+
+  useEffect(() => {
+    const key = location?.state?.tour;
+    if (!key || handledTourKeyRef.current === key) return;
+    handledTourKeyRef.current = key;
+    setTourOpen(true);
+  }, [location?.state]);
+
   useEffect(() => {
     const routeState = location?.state || null;
     if (!routeState || !routeState.autoRun) return;
@@ -2040,6 +2202,7 @@ export default function SearchPage({ user, onSignOut }) {
         <button
           type="button"
           className="sb-folder sb-folder-add"
+          data-tour="folders"
           onClick={pickFolderElectron}
           disabled={isIndexing}
         >
@@ -2047,7 +2210,7 @@ export default function SearchPage({ user, onSignOut }) {
           <span>{selectedFolders.length ? "Change folders" : "Add folder"}</span>
         </button>
 
-        <div className="sb-index" title={indexError || progressMessage || ""}>
+        <div className="sb-index" data-tour="index" title={indexError || progressMessage || ""}>
           <div className="sb-index-row">
             <strong>{indexStatusLabel}</strong>
             {isIndexing ? (
@@ -2148,7 +2311,10 @@ export default function SearchPage({ user, onSignOut }) {
           </div>
         ) : null}
 
-        <div className={`sx-searchbar ${showRequiredHints && !hasQuery && !imageSearchLabel ? "is-required" : ""}`}>
+        <div
+          className={`sx-searchbar ${showRequiredHints && !hasQuery && !imageSearchLabel ? "is-required" : ""}`}
+          data-tour="search"
+        >
           <Icon name="search" size={20} className="sx-searchbar-icon" />
           {imageSearchLabel ? (
             <span className="sx-image-chip" title={imageSearchLabel}>
@@ -2179,6 +2345,7 @@ export default function SearchPage({ user, onSignOut }) {
           <button
             type="button"
             className="sx-bar-btn"
+            data-tour="image"
             disabled={loading}
             onClick={handleGallerySelect}
             title="Search with a picture: find screenshots that look like it or contain the same text"
@@ -2214,7 +2381,68 @@ export default function SearchPage({ user, onSignOut }) {
           </div>
         ) : null}
 
-        <div className="sx-toolbar">
+        {firstRun ? (
+          <div className={`sx-firstrun ${firstRun.phase === "done" ? "is-done" : ""}`} role="status" aria-live="polite">
+            <div className="sx-fr-art" aria-hidden="true">
+              {firstRun.phase === "done" ? (
+                <span className="sx-fr-check">
+                  <Icon name="check" size={30} />
+                </span>
+              ) : (
+                <>
+                  <span className="sx-fr-sheet s1"><i /><i /><i /></span>
+                  <span className="sx-fr-sheet s2"><i /><i /><i /></span>
+                  <span className="sx-fr-sheet s3">
+                    <i /><i /><i />
+                    <span className="sx-fr-scan" />
+                  </span>
+                  <span className="sx-fr-spark k1" />
+                  <span className="sx-fr-spark k2" />
+                  <span className="sx-fr-spark k3" />
+                </>
+              )}
+            </div>
+            <div className="sx-fr-text">
+              {firstRun.phase === "done" ? (
+                <>
+                  <strong>All set! Your files are ready.</strong>
+                  <p>
+                    Search away. From now on SmartShot only reads new or changed files, so it stays quick.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <strong>
+                    Getting your files ready<span className="sx-fr-dots"><i>.</i><i>.</i><i>.</i></span>
+                  </strong>
+                  <p>
+                    This is the first time SmartShot is reading this folder, so it can take a few minutes. It only
+                    happens once. Feel free to keep using your computer; newest files become searchable first.
+                  </p>
+                  <div className="sx-fr-progress">
+                    <div className="sx-fr-bar">
+                      <div style={{ width: `${indexCounts.total ? Math.max(3, progressPercent) : 3}%` }} />
+                    </div>
+                    <span>
+                      {indexCounts.total
+                        ? `${indexCounts.done.toLocaleString()} of ${indexCounts.total.toLocaleString()} files`
+                        : indexCounts.found
+                          ? `Looking through your folders… ${indexCounts.found.toLocaleString()} files found`
+                          : "Looking through your folders…"}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+            {firstRun.phase === "done" ? (
+              <button type="button" className="sb-icon-btn sx-fr-close" aria-label="Close" onClick={() => setFirstRun(null)}>
+                <Icon name="close" size={16} />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="sx-toolbar" data-tour="filters">
           <div className="sx-chips" role="group" aria-label="File type">
             {[
               ["all", "All"],
@@ -2321,7 +2549,7 @@ export default function SearchPage({ user, onSignOut }) {
         ) : null}
 
         {visibleResults.length ? (
-          <div className="sx-grid">
+          <div className="sx-grid" data-tour="results">
             {visibleResults.map((f) => {
               const isSel = selected && (selected.path || selected._id) === (f.path || f._id);
               const reason = matchReason(f);
@@ -2365,7 +2593,7 @@ export default function SearchPage({ user, onSignOut }) {
             })}
           </div>
         ) : (
-          <div className="sx-empty">
+          <div className="sx-empty" data-tour="results">
             <span className="sx-empty-icon">
               <Icon name={!selectedFolders.length ? "folder" : hasSearched ? "search" : "logo"} size={26} />
             </span>
@@ -2883,6 +3111,7 @@ export default function SearchPage({ user, onSignOut }) {
           </div>
         </div>
       </Modal>
+      <Tour open={tourOpen} steps={TOUR_STEPS} onClose={() => setTourOpen(false)} />
     </div>
   );
 }

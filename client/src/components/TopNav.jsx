@@ -6,13 +6,14 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "./Icon";
 import { useDisplayName } from "../displayName";
+import { requestTour } from "./Tour";
 import "./TopNav.css";
 
 const NAV_ITEMS = [
-  { path: "/search", label: "Search", icon: "search" },
-  { path: "/saved", label: "Saved", icon: "star" },
-  { path: "/history", label: "History", icon: "clock" },
-  { path: "/profile", label: "Settings", icon: "settings" },
+  { path: "/search", label: "Search", icon: "search", tour: "nav-search" },
+  { path: "/saved", label: "Saved", icon: "star", tour: "nav-saved" },
+  { path: "/history", label: "History", icon: "clock", tour: "nav-history" },
+  { path: "/profile", label: "Settings", icon: "settings", tour: "nav-settings" },
 ];
 
 export default function TopNav({ children }) {
@@ -27,6 +28,19 @@ export default function TopNav({ children }) {
           <Icon name="logo" size={20} />
         </span>
         <span className="sb-brand-name">SmartShot</span>
+        <button
+          type="button"
+          className="sb-help"
+          data-tour="help"
+          aria-label="Take the tour"
+          title="Take the tour"
+          onClick={() => {
+            if (location.pathname.startsWith("/search")) requestTour();
+            else navigate("/search", { state: { tour: Date.now() } });
+          }}
+        >
+          ?
+        </button>
       </div>
 
       <div className="sb-nav">
@@ -37,6 +51,7 @@ export default function TopNav({ children }) {
               key={item.path}
               type="button"
               className={`sb-nav-item ${active ? "is-active" : ""}`}
+              data-tour={item.tour}
               aria-current={active ? "page" : undefined}
               onClick={() => navigate(item.path)}
             >

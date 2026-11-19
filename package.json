@@ -1,6 +1,6 @@
 {
   "name": "smart-screenshot-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Smart Screenshot Search Engine - Electron + React + Node desktop app",
   "main": "electron/main.js",
   "author": "Sakshi",

@@ -1,0 +1,226 @@
+/* client/src/components/Tour.css — guided tour overlay */
+
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  pointer-events: none;
+}
+
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.tour-backdrop.is-dim {
+  background: rgba(43, 30, 19, 0.5);
+  animation: tour-fade 0.25s ease both;
+}
+
+/* The highlight: a transparent box whose huge shadow dims everything else. */
+.tour-spot {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(43, 30, 19, 0.5);
+  transition: top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: tour-fade 0.25s ease both;
+}
+
+.tour-spot-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  border: 2px solid var(--amber, #c98a3d);
+  animation: tour-pulse 1.8s ease-out infinite;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(340px, calc(100vw - 24px));
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  background: var(--surface, #fffdf9);
+  color: var(--ink, #2b2118);
+  border: 1px solid var(--line, #eadfce);
+  box-shadow: 0 18px 50px rgba(43, 30, 19, 0.28), 0 2px 6px rgba(43, 30, 19, 0.12);
+  pointer-events: auto;
+  outline: none;
+  animation: tour-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tour-card.side-center {
+  width: min(400px, calc(100vw - 24px));
+  padding: 24px 24px 18px;
+  text-align: left;
+}
+
+.tour-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tour-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted, #8a7a68);
+  letter-spacing: 0.02em;
+}
+
+.tour-skip {
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted, #8a7a68);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.tour-skip:hover,
+.tour-skip:focus-visible {
+  color: var(--brown-deep, #5a3b22);
+  text-decoration: underline;
+}
+
+.tour-badge {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: var(--beige, #f1e6d6);
+  font-size: 22px;
+  animation: tour-wave 1.6s ease-in-out 0.3s 2;
+  transform-origin: 70% 70%;
+}
+
+.tour-card h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--brown-deep, #5a3b22);
+}
+
+.tour-card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-soft, #5c4d3f);
+}
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.tour-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line-strong, #dccbb3);
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.tour-dots span.is-past {
+  background: var(--brown, #a0714a);
+  opacity: 0.45;
+}
+
+.tour-dots span.is-on {
+  width: 18px;
+  background: var(--brown, #a0714a);
+}
+
+.tour-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.tour-btn {
+  border-radius: 10px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.tour-btn-primary {
+  background: var(--brown-dark, #7a5133);
+  color: #fff;
+}
+
+.tour-btn-primary:hover {
+  background: var(--brown-deep, #5a3b22);
+}
+
+.tour-btn-ghost {
+  background: transparent;
+  border-color: var(--line-strong, #dccbb3);
+  color: var(--ink, #2b2118);
+}
+
+.tour-btn-ghost:hover {
+  background: var(--beige, #f1e6d6);
+}
+
+.tour-btn:focus-visible {
+  outline: 2px solid var(--amber, #c98a3d);
+  outline-offset: 2px;
+}
+
+@keyframes tour-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tour-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes tour-pulse {
+  0% { opacity: 0.9; transform: scale(1); }
+  70% { opacity: 0; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
+@keyframes tour-wave {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-8deg); }
+  60% { transform: rotate(14deg); }
+  80% { transform: rotate(-4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot {
+    transition: none;
+  }
+  .tour-spot-ring,
+  .tour-badge,
+  .tour-card,
+  .tour-backdrop.is-dim,
+  .tour-spot {
+    animation: none;
+  }
+}

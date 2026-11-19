@@ -439,6 +439,20 @@ export default function Profile({ user, onSignOut }) {
           {resetError ? <div className="reset-error">{resetError}</div> : null}
         </section>
 
+        <section className="pf-card pf-tour-card">
+          <div>
+            <h3>New here?</h3>
+            <p className="knowledge-text">Take a one-minute tour of every feature. You can skip it at any time.</p>
+          </div>
+          <button
+            type="button"
+            className="sx-primary-btn"
+            onClick={() => navigate("/search", { state: { tour: Date.now() } })}
+          >
+            Take the tour
+          </button>
+        </section>
+
         <section className="pf-card knowledge-card">
           <h3>How it works</h3>
           <div className="knowledge-mini-list">

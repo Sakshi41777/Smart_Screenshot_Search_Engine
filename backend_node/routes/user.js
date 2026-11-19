@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const mongoose = require("mongoose");
-const { isDbReady } = require("../services/db");
+const { waitForDb } = require("../services/db");
 
 // ✅ SAFE model load (prevents OverwriteModelError)
 const User =
@@ -29,7 +29,7 @@ router.get("/me", auth, async (req, res) => {
       });
     }
 
-    if (!isDbReady()) {
+    if (!(await waitForDb())) {
       return res.status(503).json({
         ok: false,
         message:
