@@ -12,7 +12,7 @@ Everything runs **locally**: your files and their text never leave your computer
 
 **[⬇ Download the latest Windows installer](https://github.com/Sakshi41777/Smart_Screenshot_Search_Engine/releases/latest)**
 
-1. Download `SmartShot Setup x.y.z.exe` from the latest release.
+1. Download `Smart Screenshot Search Engine Setup x.y.z.exe` from the latest release.
 2. Run it. Edge may say the file isn't commonly downloaded: click **⋯ → Keep → Keep anyway**. Windows may then show **"Windows protected your PC"** because the app isn't code-signed yet: click **More info → Run anyway**.
 3. Choose **Only for me**, install, and open the app. A short guided tour shows you around.
 
@@ -65,7 +65,7 @@ npm install
 npm run dist
 ```
 
-This installs the client and backend dependencies, builds the React UI, downloads MongoDB once (into `vendor/`, which is git-ignored), and creates `SmartShot Setup x.y.z.exe` in `dist/`.
+This installs the client and backend dependencies, builds the React UI, downloads MongoDB once (into `vendor/`, which is git-ignored), and creates `Smart Screenshot Search Engine Setup x.y.z.exe` in `dist/`.
 
 > **Build tips.** Turn on Windows **Developer Mode** (Settings → System → Advanced). If your project folder is inside OneDrive and the build fails with "file is being used by another process", send the output elsewhere:
 > `npx electron-builder --win nsis --publish never "--config.directories.output=$env:USERPROFILE\smartshot-dist"`
