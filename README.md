@@ -22,6 +22,8 @@ No Node.js, MongoDB or Python setup needed. Everything the app needs is bundled.
 
 **Requirements:** Windows 10 or 11 (64-bit), about 500 MB free disk space.
 
+See **[INSTALL.md](INSTALL.md)** for the full guide: first use, updating, uninstalling and troubleshooting.
+
 ## Features
 
 - **Search inside images.** OCR (Tesseract) extracts text from screenshots and photos, and text is read from PDFs and code/text files.
@@ -33,7 +35,8 @@ No Node.js, MongoDB or Python setup needed. Everything the app needs is bundled.
 - **Saved files and search history**, with one-click re-run of past searches.
 - **No sign-up.** Open the app and start searching. Adding your name is optional.
 - **Guided tour** for new users, replayable any time from the **?** button or Settings.
-- **Optional background indexing.** With your permission, new and changed files in watched folders are indexed automatically.
+- **Optional background indexing.** With your permission, new and changed files in watched folders are indexed automatically, with a tray icon near the clock to open or quit the app.
+- **Self-healing.** If the app was left running in the background and stopped responding, opening it again restarts it automatically; after the PC wakes from sleep, the database and search service are checked and restarted if needed.
 
 ## How it works
 
@@ -107,6 +110,7 @@ Never commit your `.env` file. It's git-ignored and is never included in the ins
 
 ## Troubleshooting
 
+- **App doesn't open when clicked:** fixed in 1.0.3 (the app now recovers by itself). On older versions, end **Smart Screenshot Search Engine** and **smartshot-mongod** in Task Manager, then open it again.
 - **First start after installing is slow:** Windows scans new apps once. Wait a minute; later starts are fast.
 - **"SmartShot couldn't start":** check `%APPDATA%\smart-screenshot-desktop\backend.log` and `main.log`.
 - **OneDrive folders:** files marked "online-only" must be downloaded before they can be indexed (right-click → *Always keep on this device*).

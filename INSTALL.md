@@ -1,97 +1,61 @@
-# Smart Screenshot Search Engine - Installation Guide
+# Installing SmartShot
 
-## Installation
+SmartShot (Smart Screenshot Search Engine) is a Windows app that finds your screenshots, photos, PDFs and documents by the words inside them. This guide covers installing, first use, updating and removing it.
 
-Your **Smart Screenshot Search Engine** application has been built and is ready to install!
+## Requirements
 
-### Installer Information
-- **Installer Location**: `dist/Smart Screenshot Search Engine Setup 1.0.0.exe`
-- **File Size**: 118.73 MB
-- **Platform**: Windows (x64)
+- Windows 10 or 11 (64-bit)
+- About 500 MB of free disk space
+- Nothing else: the search service, OCR engine and database are all built in. You don't need Node.js, MongoDB, Python or an account.
 
-### How to Install
+## Install
 
-#### Option 1: Simple Installation (Recommended)
-1. Go to the `dist` folder in this project directory
-2. Double-click `Smart Screenshot Search Engine Setup 1.0.0.exe`
-3. Follow the installer wizard prompts
-4. Choose installation location (default: `C:\Users\{YourUsername}\AppData\Local\Programs\Smart Screenshot Search Engine`)
-5. Wait for installation to complete
-6. A shortcut will be created in your Start Menu
+1. Open the **[latest release](https://github.com/Sakshi41777/Smart_Screenshot_Search_Engine/releases/latest)** and download **`Smart Screenshot Search Engine Setup x.y.z.exe`** under **Assets**.
+2. If Edge says the file isn't commonly downloaded, click **⋯ → Keep → Keep anyway**.
+3. Open the downloaded file. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**.
+   These warnings appear because SmartShot is a new app that isn't code-signed yet. They don't mean anything is wrong with it.
+4. Choose **Only for me**, then **Install**.
+5. Open **SmartShot** from the Start menu or the desktop shortcut.
 
-#### Option 2: Command Line Installation
-```powershell
-# Open PowerShell and run:
-& "dist\Smart Screenshot Search Engine Setup 1.0.0.exe"
-```
+The first start after installing can take up to a minute while Windows checks the new app. Later starts are quick.
 
-### Features Included in Installation
+## First use
 
-✅ **Main Application** - Full Electron desktop app with React UI  
-✅ **Backend Service** - Local Node.js backend running on `http://127.0.0.1:5000`  
-✅ **Database** - MongoDB integration for search history and settings  
-✅ **OCR Engine** - Tesseract for text extraction from screenshots  
-✅ **Auto-updates** - Built-in update checking mechanism  
-✅ **Start Menu Shortcuts** - Quick access to the application  
+1. A short **guided tour** shows you around. You can skip it and replay it later with the **?** button next to the logo, or from **Settings → Take the tour**.
+2. Click **Add folder** and choose your Screenshots, Desktop, Downloads or any other folder. Everything inside it, including subfolders, is included.
+3. The first time you add a folder, SmartShot reads every file once. For large folders this can take a few minutes. Newest files become searchable first, and you can keep using your computer.
+4. Type any word you remember seeing in a file and press **Enter**. You can also search **By image** or with the camera.
 
-### System Requirements
+After the first read, only new or changed files are read, so it stays quick.
 
-- **OS**: Windows 10 or later (x64)
-- **RAM**: 2 GB minimum
-- **Disk Space**: 500 MB+ for installation
-- **MongoDB**: Will be used if available locally
-- **Node.js**: Not required (bundled in the app)
+## Update to a new version
 
-### First Launch
+1. Quit SmartShot: right-click its icon near the clock and choose **Quit SmartShot**, or simply close the window.
+2. Download the new installer from the latest release and run it.
 
-After installation:
-1. Look for "Smart Screenshot Search Engine" in your Start Menu
-2. Click to launch the application
-3. The backend service will start automatically
-4. Wait 3-5 seconds for the UI to fully load
-5. The app will prompt for folder selection on first run
+Your folders, saved files and search history are kept.
 
-### Features
+## Uninstall
 
-- 🔍 **Fast Screenshot Search** - Search through thousands of screenshots
-- 📸 **Image Recognition** - AI-powered image matching
-- 🏷️ **OCR Text Extraction** - Find text within screenshots
-- 💾 **Auto-indexing** - Background file monitoring
-- 🔐 **Privacy Focused** - All processing done locally
-- ⚡ **Desktop Integration** - System tray support, keyboard shortcuts
+1. Open **Settings → Apps → Installed apps**.
+2. Find **Smart Screenshot Search Engine**, click **⋯ → Uninstall**.
 
-### Troubleshooting
+Uninstalling keeps your index and settings in `%APPDATA%\smart-screenshot-desktop`, in case you reinstall. To remove them too, delete that folder after uninstalling. Your own screenshots and documents are never changed or deleted.
 
-#### App won't start
-- Make sure port 5000 is not in use by another application
-- Check Windows Firewall hasn't blocked the app
-- Try restarting your computer
+## Troubleshooting
 
-#### Backend connection error
-- Verify the backend service is running (should start automatically)
-- Check that `http://127.0.0.1:5000/health` is accessible
-- Check ports 5000 and 3000 are available
+**The app doesn't open when I click it.**
+SmartShot can keep running in the background (icon near the clock) to index new files. From version 1.0.3, clicking the app always brings the window back, and a copy that stopped responding is closed and restarted automatically. On older versions: open Task Manager (**Ctrl + Shift + Esc**), end **Smart Screenshot Search Engine** and **smartshot-mongod**, then open the app again.
 
-#### Performance issues
-- Reduce the number of indexed folders
-- Close other applications to free up memory
-- Check your hard drive has adequate space
+**"SmartShot couldn't start".**
+Close the app and open it again. If it keeps happening, restart your computer.
 
-### Uninstallation
+**Some files aren't found.**
+OneDrive files marked "online-only" must be downloaded before they can be read: right-click the folder → **Always keep on this device**.
 
-To uninstall the application:
-1. Open **Settings** → **Apps** → **Apps & features**
-2. Search for "Smart Screenshot Search Engine"
-3. Click the app and select **Uninstall**
-4. Follow the uninstall wizard
-5. App data in `AppData\Local\smart-screenshot-desktop` will be preserved
+**Reporting a problem.**
+Please include these two files from `%APPDATA%\smart-screenshot-desktop` (paste that path into the File Explorer address bar): `main.log` and `backend.log`. You can [open an issue](https://github.com/Sakshi41777/Smart_Screenshot_Search_Engine/issues) on GitHub.
 
-### Support
+## Privacy
 
-For issues or questions:
-- Check the application logs in `%APPDATA%/smart-screenshot-desktop/logs`
-- Verify backend is running: `curl http://127.0.0.1:5000/health`
-
----
-
-**Installation Complete!** Enjoy searching your screenshots. 🎉
+Everything runs on your computer. Your files and the text read from them are never uploaded anywhere.
