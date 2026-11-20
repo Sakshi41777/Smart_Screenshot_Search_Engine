@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, clipboard, nativeImage, Tray, Menu } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, clipboard, nativeImage, Tray, Menu, powerMonitor } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -12,9 +12,111 @@ const { execFile, spawn } = require("child_process");
 // the `second-instance` event with the second process argv. We use that to
 // support a graceful shutdown when the installer launches the exe with
 // `--shutdown`.
+// The running copy writes a "heartbeat" file every few seconds. If a new launch
+// finds that the running copy has stopped responding, it closes the stuck copy
+// and starts fresh, so users never have to open Task Manager.
+const HEARTBEAT_MS = 5000;
+const HEARTBEAT_STALE_MS = 30000;
+
+function heartbeatFile() {
+  try {
+    return path.join(app.getPath("userData"), "instance-heartbeat.json");
+  } catch {
+    return "";
+  }
+}
+
+function readHeartbeat() {
+  try {
+    const file = heartbeatFile();
+    if (!file || !fs.existsSync(file)) return null;
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!data || !Number.isFinite(data.pid) || !Number.isFinite(data.beat)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function isPidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return Boolean(err && err.code === "EPERM");
+  }
+}
+
+// Only ever close a process that is really this app (Windows can reuse old
+// process numbers for other programs).
+function isOurProcess(pid) {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") return resolve(false);
+    execFile(
+      "tasklist",
+      ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"],
+      { windowsHide: true },
+      (err, stdout) => {
+        if (err || !stdout) return resolve(false);
+        const name = (String(stdout).split(",")[0] || "").replace(/"/g, "").trim().toLowerCase();
+        resolve(Boolean(name) && name === path.win32.basename(process.execPath).toLowerCase());
+      }
+    );
+  });
+}
+
+function waitMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function forceKillPid(pid) {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") {
+      try { process.kill(pid, "SIGKILL"); } catch {}
+      return resolve();
+    }
+    execFile("taskkill", ["/F", "/PID", String(pid), "/T"], { windowsHide: true }, () => resolve());
+  });
+}
+
+function killOwnMongo() {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") return resolve();
+    execFile("taskkill", ["/F", "/IM", "smartshot-mongod.exe", "/T"], { windowsHide: true }, () => resolve());
+  });
+}
+
+// Runs in a second launch when another copy already holds the lock.
+async function recoverFromStuckInstance(argv) {
+  if (argv.includes("--shutdown")) return false;
+  let hb = readHeartbeat();
+  if (!hb || hb.pid === process.pid || !isPidAlive(hb.pid)) return false;
+  if (Date.now() - hb.beat < HEARTBEAT_STALE_MS) return false; // running copy is healthy
+
+  // The heartbeat may only be old because the PC just woke from sleep.
+  // A healthy copy writes a new one within a few seconds, so wait and re-check.
+  await waitMs(HEARTBEAT_MS + 3000);
+  hb = readHeartbeat();
+  if (!hb || !isPidAlive(hb.pid)) return true; // it exited by itself; start fresh
+  if (Date.now() - hb.beat < HEARTBEAT_STALE_MS) return false;
+  if (!(await isOurProcess(hb.pid))) return false;
+
+  try { writeMainLog("previous copy stopped responding; closing it", { pid: hb.pid }); } catch {}
+  await forceKillPid(hb.pid);
+  await killOwnMongo();
+  try { fs.unlinkSync(heartbeatFile()); } catch {}
+  await waitMs(1500);
+  return true;
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
-  app.quit();
+  recoverFromStuckInstance(process.argv)
+    .catch(() => false)
+    .then((restart) => {
+      if (restart) app.relaunch();
+      app.exit(0);
+    });
 } else {
   app.on("second-instance", (event, argv) => {
     try { writeMainLog('second-instance received', argv); } catch {}
@@ -28,11 +130,38 @@ if (!gotLock) {
       }
     } catch {}
 
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    showMainWindow();
   });
+}
+
+// Shows the window, creating it if the app was running without one
+// (started in the background at sign-in, or the window was closed).
+function showMainWindow() {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+      return;
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  } catch (err) {
+    try { writeMainLog("showMainWindow failed; creating a new window", err && err.message); } catch {}
+    mainWindow = null;
+    try { createWindow(); } catch {}
+  }
+}
+
+function startHeartbeat() {
+  const write = () => {
+    try {
+      const file = heartbeatFile();
+      if (file) fs.writeFileSync(file, JSON.stringify({ pid: process.pid, beat: Date.now() }));
+    } catch {}
+  };
+  write();
+  const timer = setInterval(write, HEARTBEAT_MS);
+  if (timer.unref) timer.unref();
 }
 
 
@@ -405,30 +534,17 @@ function ensureTray() {
     ? nativeImage.createFromPath(iconPath)
     : nativeImage.createEmpty();
   tray = new Tray(trayIcon);
-  tray.setToolTip("Smart Screenshot Search Engine");
-  tray.on("click", () => {
-    if (!mainWindow) {
-      createWindow();
-      return;
-    }
-    mainWindow.show();
-    mainWindow.focus();
-  });
+  tray.setToolTip("SmartShot");
+  tray.on("click", () => showMainWindow());
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: "Open",
-        click: () => {
-          if (!mainWindow) {
-            createWindow();
-            return;
-          }
-          mainWindow.show();
-          mainWindow.focus();
-        },
+        label: "Open SmartShot",
+        click: () => showMainWindow(),
       },
+      { type: "separator" },
       {
-        label: "Quit",
+        label: "Quit SmartShot",
         click: () => {
           isQuitting = true;
           app.quit();
@@ -1040,15 +1156,7 @@ function createWindow() {
         `Path: ${buildIndexPath}`,
       ]);
     });
-    // Show DevTools in development for debugging
-    if (process.env.NODE_ENV === 'development') {
-      mainWindow.webContents.on('did-fail-load', () => {
-        console.error("[Electron] WebContents failed to load");
-      });
-      mainWindow.webContents.on('render-process-gone', (_e, details) => {
-        console.error("[Electron] Renderer gone:", details && details.reason);
-      });
-    }
+    watchRenderer(mainWindow);
   } else {
     const expectedPath = path.join(
       path.resolve(__dirname, ".."),
@@ -1066,6 +1174,11 @@ function createWindow() {
   // Ensure window is visible
   mainWindow.show();
 
+  const thisWindow = mainWindow;
+  thisWindow.on("closed", () => {
+    if (mainWindow === thisWindow) mainWindow = null;
+  });
+
   mainWindow.on("close", (event) => {
     const settings = watcherState.settings || loadBackgroundSettings();
     const shouldKeepTray = Boolean(
@@ -1079,7 +1192,70 @@ function createWindow() {
   });
 }
 
+// If the page crashes or freezes, reload it instead of leaving a blank window.
+function watchRenderer(win) {
+  let unresponsiveTimer = null;
+  win.webContents.on("render-process-gone", (_e, details) => {
+    try { writeMainLog("renderer gone; reloading", details && details.reason); } catch {}
+    if (isQuitting || win.isDestroyed()) return;
+    setTimeout(() => {
+      if (!win.isDestroyed()) win.reload();
+    }, 800);
+  });
+  win.on("unresponsive", () => {
+    if (unresponsiveTimer) return;
+    unresponsiveTimer = setTimeout(() => {
+      unresponsiveTimer = null;
+      if (isQuitting || win.isDestroyed()) return;
+      try { writeMainLog("window unresponsive for 15s; reloading"); } catch {}
+      try { win.webContents.forcefullyCrashRenderer(); } catch {}
+      setTimeout(() => {
+        if (!win.isDestroyed()) win.reload();
+      }, 800);
+    }, 15000);
+  });
+  win.on("responsive", () => {
+    if (unresponsiveTimer) {
+      clearTimeout(unresponsiveTimer);
+      unresponsiveTimer = null;
+    }
+  });
+}
+
+// After the PC wakes from sleep, make sure the database and search service
+// are still running, and quietly restart them if not.
+let resumeCheckRunning = false;
+async function checkServicesAfterResume() {
+  if (resumeCheckRunning || isQuitting) return;
+  resumeCheckRunning = true;
+  try {
+    await sleep(4000);
+    writeMainLog("system resumed; checking services");
+    mongoRestarts = 0;
+    if (app.isPackaged && !process.env.MONGO_URI && !(await isPortOpen(EMBEDDED_MONGO_PORT))) {
+      writeMainLog("database not running after resume; restarting");
+      embeddedMongoUri = await startEmbeddedMongo();
+    }
+    if (!(await isBackendHealthy())) {
+      writeMainLog("search service not answering after resume; restarting");
+      killBackendProcess();
+      await ensureBackendRunning();
+    }
+  } catch (err) {
+    try { writeMainLog("resume check failed", err && err.message); } catch {}
+  } finally {
+    resumeCheckRunning = false;
+  }
+}
+
 app.whenReady().then(async () => {
+  // A second launch only checks on the running copy, then exits (see top of file).
+  if (!gotLock) return;
+  startHeartbeat();
+  try {
+    powerMonitor.on("resume", () => { void checkServicesAfterResume(); });
+    powerMonitor.on("unlock-screen", () => { void checkServicesAfterResume(); });
+  } catch {}
   app.setAppUserModelId(appUserModelId);
   watcherState.settings = loadBackgroundSettings();
   try { writeMainLog('app.whenReady - starting with settings', watcherState.settings); } catch {}
@@ -1093,6 +1269,9 @@ app.whenReady().then(async () => {
   // Show the window right away: the UI shows "Starting…" until the backend answers.
   if (!launchInBackground) {
     createWindow();
+  } else {
+    // Running in the background: show a tray icon so the app can be opened or quit.
+    ensureTray();
   }
 
   const backendOk = await ensureBackendRunning();
@@ -1139,6 +1318,12 @@ app.on("before-quit", (event) => {
   }
   // Close the database cleanly first so it never needs recovery on next start.
   event.preventDefault();
+  // Safety net: never leave a half-closed copy running in the background.
+  setTimeout(() => {
+    try { writeMainLog("quit took too long; forcing exit"); } catch {}
+    try { stopEmbeddedMongo(); } catch {}
+    app.exit(0);
+  }, 15000).unref?.();
   shutdownEmbeddedMongoGracefully()
     .catch(() => {})
     .finally(() => {
@@ -1150,6 +1335,13 @@ app.on("before-quit", (event) => {
 });
 
 app.on("activate", () => {
-  if (!mainWindow) createWindow();
-  else mainWindow.show();
+  if (gotLock) showMainWindow();
+});
+
+app.on("will-quit", () => {
+  // Clean exit: no heartbeat left behind for the next launch to inspect.
+  try {
+    const hb = readHeartbeat();
+    if (hb && hb.pid === process.pid) fs.unlinkSync(heartbeatFile());
+  } catch {}
 });
